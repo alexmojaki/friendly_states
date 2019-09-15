@@ -1,5 +1,6 @@
 from __future__ import annotations
-import unittest
+
+import pytest
 
 from friendly_states.core import State
 
@@ -42,29 +43,25 @@ class State2(OtherMachine):
         pass
 
 
-class TestStateMachine(unittest.TestCase):
-    def test_transitions(self):
-        light = TrafficLight()
-        self.assertIs(light.state, Green)
-        Green(light).slow_down()
-        self.assertIs(light.state, Yellow)
-        Yellow(light).stop()
-        self.assertIs(light.state, Red)
-        Red(light).go()
-        self.assertIs(light.state, Green)
-        with self.assertRaises(ValueError):
-            Red(light)
-
-    def test_attributes(self):
-        self.assertEqual(Green.slug, "Green")
-        self.assertEqual(Green.label, "Green")
-        self.assertEqual(Green.output_states, {Yellow})
-        self.assertEqual(Green.slow_down.output_names, ["Yellow"])
-        self.assertEqual(TrafficLightMachine.states_set, {Green, Yellow, Red})
-        self.assertEqual(TrafficLightMachine.name_to_state, {"Green": Green, "Yellow": Yellow, "Red": Red})
-        self.assertEqual(TrafficLightMachine.slug_to_state, {"Green": Green, "Yellow": Yellow, "Red": Red})
-        self.assertEqual(OtherMachine.states_set, {State1, State2})
+def test_transitions():
+    light = TrafficLight()
+    assert light.state is Green
+    Green(light).slow_down()
+    assert light.state is Yellow
+    Yellow(light).stop()
+    assert light.state is Red
+    Red(light).go()
+    assert light.state is Green
+    with pytest.raises(ValueError):
+        Red(light)
 
 
-if __name__ == '__main__':
-    unittest.main()
+def test_attributes():
+    assert Green.slug == "Green"
+    assert Green.label == "Green"
+    assert Green.output_states == {Yellow}
+    assert Green.slow_down.output_names == ["Yellow"]
+    assert TrafficLightMachine.states_set == {Green, Yellow, Red}
+    assert TrafficLightMachine.name_to_state == {"Green": Green, "Yellow": Yellow, "Red": Red}
+    assert TrafficLightMachine.slug_to_state == {"Green": Green, "Yellow": Yellow, "Red": Red}
+    assert OtherMachine.states_set == {State1, State2}
