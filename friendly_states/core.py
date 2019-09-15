@@ -1,14 +1,15 @@
 import functools
 import inspect
 import re
+from abc import ABCMeta, abstractmethod
+from typing import Type
 
-from django.db import models
 from littleutils import only
 
 from .utils import snake
 
 
-class StateMeta(type):
+class StateMeta(ABCMeta):
     name_to_state = {}
     slug_to_state = {}
     states_set = set()
@@ -37,6 +38,7 @@ class StateMeta(type):
             raise ValueError(f"Multiple machine classes found in ancestors of {cls}: {machine_classes}")
 
         machine: StateMeta = machine_classes[0]
+        assert issubclass(machine, AbstractState)
 
         # This class is a machine root
         # It gets fresh collections for its states
@@ -87,8 +89,8 @@ class StateMeta(type):
         assert len(output_names) >= 1
 
         @functools.wraps(func)
-        def wrapper(self: State, *args, **kwargs):
-            result: StateMeta = func(self, *args, **kwargs)
+        def wrapper(self: AbstractState, *args, **kwargs):
+            result: 'Type[AbstractState]' = func(self, *args, **kwargs)
             if result is None:
                 # Infer the next state based on the annotation
                 if len(output_names) > 1:
@@ -100,7 +102,15 @@ class StateMeta(type):
             assert result.__name__ in output_names
 
             # Do the state change
-            self.transition(result)
+            current = self.get_state()
+            if current is not type(self):
+                raise StateChangedElsewhere(
+                    self,
+                    f"state has changed to {current} since instantiation. "
+                    f"Did you change the state in a transition method?",
+                )
+
+            self.set_state(current, result)
 
         wrapper.output_names = output_names
         return wrapper
@@ -175,7 +185,24 @@ class StateMeta(type):
             assert state.output_states == output_states
 
 
-class State(metaclass=StateMeta):
+class StateMachineException(Exception):
+    def __init__(self, state, message):
+        self.state = state
+        self.message = message
+
+    def __str__(self):
+        return f"for {self.state}: {self.message}"
+
+
+class IncorrectInitialState(StateMachineException):
+    pass
+
+
+class StateChangedElsewhere(StateMachineException):
+    pass
+
+
+class AbstractState(metaclass=StateMeta):
     """
     Base class of all states.
 
@@ -206,91 +233,43 @@ class State(metaclass=StateMeta):
     After do_thing() succeeds, transition() will be called which updates the state in the DB.
     """
 
-    state_attribute_name = "state"
-
     def __init__(self, inst):
         self.inst = inst
-        if self.state is not type(self):
-            raise ValueError(f"{self.inst} is in state {self.state}, not {type(self)}")
+        current = self.get_state()
+        if not (isinstance(current, type) and issubclass(current, AbstractState)):
+            raise ValueError(f"get_instance_state is supposed to return a subclass of {AbstractState.__name__}, "
+                             f"but it returned {current}")
+        desired = type(self)
+        if current is not desired:
+            raise IncorrectInitialState(self, f"instance is actually in state {current}")
 
-    def transition(self, next_state):
-        self.state = next_state
+    @abstractmethod
+    def get_state(self) -> 'Type[AbstractState]':
+        pass
 
-    @property
-    def state(self):
-        return getattr(self.inst, self.state_attribute_name)
+    @abstractmethod
+    def set_state(self, previous_state: 'Type[AbstractState]', new_state: 'Type[AbstractState]'):
+        pass
 
-    @state.setter
-    def state(self, next_state):
-        setattr(self.inst, self.state_attribute_name, next_state)
+    def __repr__(self):
+        return f"{type(self).__name__}(inst={repr(self.inst)})"
 
 
-class DjangoState(State):
-    @classmethod
-    def state_db_field(cls, **kwargs):
-        """
-        To be used directly inside a Django database model declaration.
-        Returns a pair:
-         - field: a models.CharField storing a string containing the slug of a state
-         - state: a property which looks up the actual state class from the field's string value
-             This property is intentionally read only because changing the state
-             should be done with transition methods.
+class AttributeState(AbstractState):
+    attr_name = "state"
 
-        Example usage:
+    def get_state(self):
+        return getattr(self.inst, self.attr_name)
 
-            class MyModel(django.db.models.Model):
-                state_slug, state = MyMachine.state_db_field(default=MyInitialState)
+    def set_state(self, previous_state, new_state):
+        setattr(self.inst, self.attr_name, new_state)
 
-        Then later:
 
-            inst = MyModel()
-            MyInitialState(inst).do_transition()
+class MappingKeyState(AbstractState):
+    key_name = "state"
 
-        or:
+    def get_state(self):
+        return self.inst[self.key_name]
 
-            if inst.state is MyInitialState:
-                ...
-
-        or:
-
-            initial_objects = MyModel.objects.filter(state_slug=MyInitialState.slug)
-
-        The name of the second returned value should match state_attribute_name on this class
-        (the default is "state").
-
-        All keyword arguments are passed directly to the Django model field.
-        """
-
-        max_length = max(map(len, cls.slug_to_state)) * 2
-        assert kwargs.setdefault("max_length", max_length) >= max_length
-        kwargs.setdefault("verbose_name", "State")
-        default = kwargs.get("default")
-        if isinstance(default, StateMeta):
-            assert issubclass(default, cls)
-            kwargs["default"] = default.slug
-
-        field = models.CharField(
-            choices=[
-                state.slug_label
-                for state in cls.slug_to_state.values()
-            ],
-            **kwargs,
-        )
-
-        field._state_machine_class = cls
-
-        @property
-        def state(self):
-            slug = getattr(self, field.name)
-            return cls.slug_to_state.get(slug)
-
-        return field, state
-
-    def transition(self, next_state):
-        field = only(
-            f for f in type(self.inst)._meta.get_fields()
-            if hasattr(f, "_state_machine_class")
-            if isinstance(self, f._state_machine_class)
-        )
-        setattr(self.inst, field.attname, next_state.slug)
-        self.inst.save()
+    def set_state(self, previous_state, new_state):
+        self.inst[self.key_name] = new_state

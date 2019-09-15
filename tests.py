@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import pytest
 
-from friendly_states.core import State
+from friendly_states.core import AttributeState, IncorrectInitialState
 
 
-class TrafficLightMachine(State):
+class TrafficLightMachine(AttributeState):
     is_machine = True
 
 
@@ -29,7 +29,7 @@ class TrafficLight:
         self.state = Green
 
 
-class OtherMachine(State):
+class OtherMachine(AttributeState):
     is_machine = True
 
 
@@ -52,7 +52,7 @@ def test_transitions():
     assert light.state is Red
     Red(light).go()
     assert light.state is Green
-    with pytest.raises(ValueError):
+    with pytest.raises(IncorrectInitialState):
         Red(light)
 
 
