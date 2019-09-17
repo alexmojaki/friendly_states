@@ -24,6 +24,9 @@ class Red(TrafficLightMachine):
         pass
 
 
+TrafficLightMachine.complete()
+
+
 class TrafficLight:
     def __init__(self):
         self.state = Green
@@ -43,6 +46,9 @@ class State2(OtherMachine):
         pass
 
 
+OtherMachine.complete()
+
+
 def test_transitions():
     light = TrafficLight()
     assert light.state is Green
@@ -60,8 +66,15 @@ def test_attributes():
     assert Green.slug == "Green"
     assert Green.label == "Green"
     assert Green.output_states == {Yellow}
-    assert Green.slow_down.output_names == ["Yellow"]
-    assert TrafficLightMachine.states_set == {Green, Yellow, Red}
-    assert TrafficLightMachine.name_to_state == {"Green": Green, "Yellow": Yellow, "Red": Red}
-    assert TrafficLightMachine.slug_to_state == {"Green": Green, "Yellow": Yellow, "Red": Red}
-    assert OtherMachine.states_set == {State1, State2}
+    assert Green.slow_down.output_states == {Yellow}
+    assert TrafficLightMachine.states == {Green, Yellow, Red}
+    assert OtherMachine.states == {State1, State2}
+
+
+def test_graph():
+    class Graph:
+        Green: [Yellow]
+        Yellow: [Red]
+        Red: [Green]
+
+    TrafficLightMachine.check_graph(Graph)

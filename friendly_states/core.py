@@ -10,9 +10,9 @@ from .utils import snake
 
 
 class StateMeta(ABCMeta):
-    name_to_state = {}
-    slug_to_state = {}
-    states_set = set()
+    subclasses = None
+    name_to_state = None
+    states = None
 
     def __new__(mcs, name, bases, attrs):
         """
@@ -43,9 +43,7 @@ class StateMeta(ABCMeta):
         # This class is a machine root
         # It gets fresh collections for its states
         if cls is machine:
-            cls.name_to_state = {}
-            cls.slug_to_state = {}
-            cls.states_set = set()
+            cls.subclasses = set()
             return cls
 
         # Check that abstract classes have been declared correctly
@@ -60,46 +58,63 @@ class StateMeta(ABCMeta):
                                  f"but {ancestor} is not abstract. If it should be, mark it with is_abstract = True. "
                                  f"You cannot inherit from actual state classes.")
 
-        for method_name, func in list(cls.__dict__.items()):
-            # Find functions with a return annotation like
-            # -> [OutputState, ...]
-            if not inspect.isfunction(func):
-                continue
-
-            annotation = func.__annotations__.get("return")
-            if not (annotation and annotation[0] == "[" and annotation[-1] == "]"):
-                continue
-
-            # Replace the function
-            setattr(cls, method_name, cls.make_transition_wrapper(func, annotation))
-
         if cls.__dict__.get("is_abstract"):
             return cls
 
         # This class is an actual concrete state!
         # Add class to various useful collections in the machine
-        machine.name_to_state[name] = cls
-        machine.slug_to_state[cls.slug] = cls
-        machine.states_set.add(cls)
+        machine.subclasses.add(cls)
 
         return cls
 
-    def make_transition_wrapper(cls, func, annotation):
+    def complete(cls):
+        if not cls.__dict__.get("is_machine"):
+            raise ValueError(
+                "complete() can only be called on state machine roots, i.e. "
+                "classes marked with is_machine = True.",
+            )
+
+        cls.states = frozenset(
+            sub for sub in cls.subclasses
+            if not sub.__dict__.get("is_abstract")
+        )
+        cls.name_to_state = {state.__name__: state for state in cls.states}
+        assert len(cls.states) == len(cls.name_to_state)
+
+        for sub in cls.subclasses:
+            for method_name, func in list(sub.__dict__.items()):
+                # Find functions with a return annotation like
+                # -> [OutputState, ...]
+                if not inspect.isfunction(func):
+                    continue
+
+                annotation = func.__annotations__.get("return")
+                if not (annotation and annotation[0] == "[" and annotation[-1] == "]"):
+                    continue
+
+                # Replace the function
+                setattr(sub, method_name, sub._make_transition_wrapper(func, annotation))
+
+    def _make_transition_wrapper(cls, func, annotation):
         output_names = re.findall(r"\w+", annotation)
         assert len(output_names) >= 1
+        output_states = {
+            cls.name_to_state[name]
+            for name in output_names
+        }
+        assert len(output_states) == len(output_names)
 
         @functools.wraps(func)
         def wrapper(self: AbstractState, *args, **kwargs):
             result: 'Type[AbstractState]' = func(self, *args, **kwargs)
             if result is None:
                 # Infer the next state based on the annotation
-                if len(output_names) > 1:
+                if len(output_states) > 1:
                     raise ValueError(f"This transition has multiple output states {output_names}, you must return one")
-                result = cls.name_to_state[only(output_names)]
-            assert result in cls.states_set
+                result = only(output_states)
 
             # Ensure the next state is listed in the annotation
-            assert result.__name__ in output_names
+            assert result in output_states
 
             # Do the state change
             current = self.get_state()
@@ -112,7 +127,7 @@ class StateMeta(ABCMeta):
 
             self.set_state(current, result)
 
-        wrapper.output_names = output_names
+        wrapper.output_states = output_states
         return wrapper
 
     @property
@@ -145,10 +160,7 @@ class StateMeta(ABCMeta):
         :return:
         """
         return set().union(*[
-            [
-                cls.name_to_state[name]
-                for name in getattr(func, "output_names", [])
-            ]
+            getattr(func, "output_states", [])
             for func in cls.__dict__.values()  # TODO doesn't handle inheritance of state classes
         ])
 
