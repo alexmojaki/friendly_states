@@ -78,3 +78,8 @@ def test_graph():
         Red: [Green]
 
     TrafficLightMachine.check_graph(Graph)
+
+
+def test_repr():
+    assert repr(TrafficLightMachine) == "<class 'tests.TrafficLightMachine'>"
+    assert repr(Green) == "Green"

@@ -58,11 +58,6 @@ class StateMeta(ABCMeta):
                                  f"but {ancestor} is not abstract. If it should be, mark it with is_abstract = True. "
                                  f"You cannot inherit from actual state classes.")
 
-        if cls.__dict__.get("is_abstract"):
-            return cls
-
-        # This class is an actual concrete state!
-        # Add class to various useful collections in the machine
         machine.subclasses.add(cls)
 
         return cls
@@ -130,6 +125,11 @@ class StateMeta(ABCMeta):
         wrapper.output_states = output_states
         return wrapper
 
+    def __repr__(cls):
+        if cls.is_state:
+            return cls.__name__
+        return super().__repr__()
+
     @property
     def slug(cls):
         """
@@ -154,11 +154,19 @@ class StateMeta(ABCMeta):
         return self.slug, self.label
 
     @property
+    def is_state(cls):
+        return cls in (cls.states or ())
+
+    @property
     def output_states(cls):
         """
         Set of states (State subclasses) which can be reached directly from this state.
-        :return:
+
+        Raises an AttributeError if this is not a state class.
         """
+        if not cls.is_state:
+            raise AttributeError("This is not a state class")
+
         return set().union(*[
             getattr(func, "output_states", [])
             for func in cls.__dict__.values()  # TODO doesn't handle inheritance of state classes
