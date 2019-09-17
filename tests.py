@@ -8,6 +8,11 @@ from friendly_states.core import AttributeState, IncorrectInitialState
 class TrafficLightMachine(AttributeState):
     is_machine = True
 
+    class Summary:
+        Green: [Yellow]
+        Yellow: [Red]
+        Red: [Green]
+
 
 class Green(TrafficLightMachine):
     def slow_down(self) -> [Yellow]:
@@ -73,11 +78,12 @@ def test_attributes():
 
 def test_graph():
     class Graph:
-        Green: [Yellow]
+        Green: [Yellow, Red]
         Yellow: [Red]
         Red: [Green]
 
-    TrafficLightMachine.check_graph(Graph)
+    with pytest.raises(AssertionError):
+        TrafficLightMachine.check_graph(Graph)
 
 
 def test_repr():

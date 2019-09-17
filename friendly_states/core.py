@@ -90,6 +90,10 @@ class StateMeta(ABCMeta):
                 # Replace the function
                 setattr(sub, method_name, sub._make_transition_wrapper(func, annotation))
 
+        summary = cls.__dict__.get("Summary")
+        if summary:
+            cls.check_graph(summary)
+
     def _make_transition_wrapper(cls, func, annotation):
         output_names = re.findall(r"\w+", annotation)
         assert len(output_names) >= 1
