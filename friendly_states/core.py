@@ -27,7 +27,8 @@ class StateMeta(ABCMeta):
         machine_classes = [
             ancestor
             for ancestor in cls.__mro__
-            if ancestor.__dict__.get("is_machine")
+            if isinstance(ancestor, StateMeta)
+            if ancestor.is_machine
         ]
 
         if not machine_classes:
@@ -53,7 +54,7 @@ class StateMeta(ABCMeta):
             if machine not in ancestor.__mro__:
                 # This ancestor is unrelated to state machines
                 continue
-            if not ancestor.__dict__.get("is_abstract"):
+            if not ancestor.is_abstract:
                 raise ValueError(f"{cls} inherits from {ancestor} and both are part of the machine {machine}, "
                                  f"but {ancestor} is not abstract. If it should be, mark it with is_abstract = True. "
                                  f"You cannot inherit from actual state classes.")
@@ -63,7 +64,7 @@ class StateMeta(ABCMeta):
         return cls
 
     def complete(cls):
-        if not cls.__dict__.get("is_machine"):
+        if not cls.is_machine:
             raise ValueError(
                 "complete() can only be called on state machine roots, i.e. "
                 "classes marked with is_machine = True.",
@@ -71,7 +72,7 @@ class StateMeta(ABCMeta):
 
         cls.states = frozenset(
             sub for sub in cls.subclasses
-            if not sub.__dict__.get("is_abstract")
+            if not sub.is_abstract
         )
         cls.name_to_state = {state.__name__: state for state in cls.states}
         assert len(cls.states) == len(cls.name_to_state)
@@ -133,6 +134,14 @@ class StateMeta(ABCMeta):
         if cls.is_state:
             return cls.__name__
         return super().__repr__()
+
+    @property
+    def is_machine(cls):
+        return cls.__dict__.get("is_machine", False)
+
+    @property
+    def is_abstract(cls):
+        return cls.__dict__.get("is_abstract", False)
 
     @property
     def slug(cls):
