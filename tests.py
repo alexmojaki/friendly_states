@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+from contextlib import contextmanager
+
 import pytest
 
 from friendly_states.core import AttributeState, IncorrectInitialState
+from friendly_states.exceptions import StateChangedElsewhere
 
 
 class TrafficLightMachine(AttributeState):
@@ -32,9 +35,9 @@ class Red(TrafficLightMachine):
 TrafficLightMachine.complete()
 
 
-class TrafficLight:
-    def __init__(self):
-        self.state = Green
+class StatefulThing:
+    def __init__(self, state):
+        self.state = state
 
 
 class OtherMachine(AttributeState):
@@ -43,7 +46,7 @@ class OtherMachine(AttributeState):
 
 class State1(OtherMachine):
     def to_2(self) -> [State2]:
-        pass
+        self.set_state(State1, State2)  # this is wrong
 
 
 class State2(OtherMachine):
@@ -54,8 +57,17 @@ class State2(OtherMachine):
 OtherMachine.complete()
 
 
+@contextmanager
+def raises(cls, **kwargs):
+    with pytest.raises(cls) as exc_info:
+        yield
+    exc = exc_info.value
+    for key, value in kwargs.items():
+        assert getattr(exc, key) == value
+
+
 def test_transitions():
-    light = TrafficLight()
+    light = StatefulThing(Green)
     assert light.state is Green
     Green(light).slow_down()
     assert light.state is Yellow
@@ -63,8 +75,14 @@ def test_transitions():
     assert light.state is Red
     Red(light).go()
     assert light.state is Green
-    with pytest.raises(IncorrectInitialState):
+    with raises(IncorrectInitialState, instance=light, desired=Red, current=Green):
         Red(light)
+
+
+def test_state_changed_elsewhere():
+    obj = StatefulThing(State1)
+    with raises(StateChangedElsewhere, instance=obj, current=State2, state=State1):
+        State1(obj).to_2()
 
 
 def test_attributes():

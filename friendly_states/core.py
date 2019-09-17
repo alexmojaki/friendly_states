@@ -6,6 +6,7 @@ from typing import Type
 
 from littleutils import only
 
+from .exceptions import StateChangedElsewhere, IncorrectInitialState, MultipleMachineAncestors
 from .utils import snake
 
 
@@ -36,7 +37,11 @@ class StateMeta(ABCMeta):
             return cls
 
         if len(machine_classes) > 1:
-            raise ValueError(f"Multiple machine classes found in ancestors of {cls}: {machine_classes}")
+            raise MultipleMachineAncestors(
+                "Multiple machine classes found in ancestors of {cls}: {machine_classes}",
+                cls=cls,
+                machine_classes=machine_classes,
+            )
 
         machine: StateMeta = machine_classes[0]
         assert issubclass(machine, AbstractState)
@@ -120,9 +125,11 @@ class StateMeta(ABCMeta):
             current = self.get_state()
             if current is not type(self):
                 raise StateChangedElsewhere(
-                    self,
-                    f"state has changed to {current} since instantiation. "
-                    f"Did you change the state in a transition method?",
+                    "The state of {instance} has changed to {current} since instantiating {state}. "
+                    "Did you change the state inside a transition method? Don't.",
+                    instance=self.inst,
+                    current=current,
+                    state=type(self),
                 )
 
             self.set_state(current, result)
@@ -218,23 +225,6 @@ class StateMeta(ABCMeta):
             assert state.output_states == output_states
 
 
-class StateMachineException(Exception):
-    def __init__(self, state, message):
-        self.state = state
-        self.message = message
-
-    def __str__(self):
-        return f"for {self.state}: {self.message}"
-
-
-class IncorrectInitialState(StateMachineException):
-    pass
-
-
-class StateChangedElsewhere(StateMachineException):
-    pass
-
-
 class AbstractState(metaclass=StateMeta):
     """
     Base class of all states.
@@ -274,7 +264,12 @@ class AbstractState(metaclass=StateMeta):
                              f"but it returned {current}")
         desired = type(self)
         if current is not desired:
-            raise IncorrectInitialState(self, f"instance is actually in state {current}")
+            raise IncorrectInitialState(
+                "{instance} should be in state {desired} but is actually in state {current}",
+                instance=self.inst,
+                desired=desired,
+                current=current,
+            )
 
     @abstractmethod
     def get_state(self) -> 'Type[AbstractState]':
