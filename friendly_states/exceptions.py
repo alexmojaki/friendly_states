@@ -17,3 +17,7 @@ class StateChangedElsewhere(StateMachineException):
 
 class MultipleMachineAncestors(StateMachineException):
     pass
+
+
+class IncorrectSummary(Exception):
+    pass

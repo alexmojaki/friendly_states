@@ -5,7 +5,7 @@ from contextlib import contextmanager
 import pytest
 
 from friendly_states.core import AttributeState, IncorrectInitialState
-from friendly_states.exceptions import StateChangedElsewhere
+from friendly_states.exceptions import StateChangedElsewhere, IncorrectSummary
 
 
 class TrafficLightMachine(AttributeState):
@@ -100,10 +100,40 @@ def test_graph():
         Yellow: [Red]
         Red: [Green]
 
-    with pytest.raises(AssertionError):
+    with pytest.raises(IncorrectSummary):
         TrafficLightMachine.check_graph(Graph)
 
 
 def test_repr():
     assert repr(TrafficLightMachine) == "<class 'tests.TrafficLightMachine'>"
     assert repr(Green) == "Green"
+
+
+def test_abstract_classes():
+    class MyMachine(AttributeState):
+        is_machine = True
+
+        class Summary:
+            Loner: [Child1]
+            Child1: [Loner, Child2]
+            Child2: [Loner, Child1]
+
+    class Loner(MyMachine):
+        def to_child1(self) -> [Child1]:
+            pass
+
+    class Parent(MyMachine):
+        is_abstract = True
+
+        def to_loner(self) -> [Loner]:
+            pass
+
+    class Child1(Parent):
+        def to_child2(self) -> [Child2]:
+            pass
+
+    class Child2(Parent):
+        def to_child1(self) -> [Child1]:
+            pass
+
+    MyMachine.complete()

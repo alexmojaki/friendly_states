@@ -6,6 +6,7 @@ from typing import Type
 
 from littleutils import only
 
+from friendly_states.exceptions import IncorrectSummary
 from .exceptions import StateChangedElsewhere, IncorrectInitialState, MultipleMachineAncestors
 from .utils import snake
 
@@ -14,6 +15,7 @@ class StateMeta(ABCMeta):
     subclasses = None
     name_to_state = None
     states = None
+    direct_transitions = None
 
     def __new__(mcs, name, bases, attrs):
         """
@@ -83,6 +85,7 @@ class StateMeta(ABCMeta):
         assert len(cls.states) == len(cls.name_to_state)
 
         for sub in cls.subclasses:
+            transitions = []
             for method_name, func in list(sub.__dict__.items()):
                 # Find functions with a return annotation like
                 # -> [OutputState, ...]
@@ -93,8 +96,13 @@ class StateMeta(ABCMeta):
                 if not (annotation and annotation[0] == "[" and annotation[-1] == "]"):
                     continue
 
+                transition = sub._make_transition_wrapper(func, annotation)
+                transitions.append(transition)
+
                 # Replace the function
-                setattr(sub, method_name, sub._make_transition_wrapper(func, annotation))
+                setattr(sub, method_name, transition)
+
+            sub.direct_transitions = tuple(transitions)
 
         summary = cls.__dict__.get("Summary")
         if summary:
@@ -178,6 +186,13 @@ class StateMeta(ABCMeta):
         return cls in (cls.states or ())
 
     @property
+    def transitions(cls):
+        return set().union(*[
+            getattr(sub, "direct_transitions", ()) or ()
+            for sub in cls.__mro__
+        ])
+
+    @property
     def output_states(cls):
         """
         Set of states (State subclasses) which can be reached directly from this state.
@@ -189,40 +204,53 @@ class StateMeta(ABCMeta):
 
         return set().union(*[
             getattr(func, "output_states", [])
-            for func in cls.__dict__.values()  # TODO doesn't handle inheritance of state classes
+            for func in cls.transitions
         ])
-
-    def generate_classes(cls, graph):
-        """
-        Generates Python source code with stubs of state classes
-        from a summary graph.
-        """
-        for name, annotation in graph.__annotations__.items():
-            if name in cls.name_to_state:
-                continue
-            print(f"class {name}(State):")
-            output_names = re.findall(r"\w+", annotation)
-            if output_names:
-                for output in output_names:
-                    print(f"""
-        def (self) -> [{output}]:
-            pass
-    """)
-            else:
-                print("    pass\n")
 
     def check_graph(cls, graph):
         """
         Checks that the summary graph matches the state classes.
         """
-        for name, annotation in graph.__annotations__.items():
-            output_names = re.findall(r"\w+", annotation)
-            output_states = {
-                cls.name_to_state[output_name]
-                for output_name in output_names
-            }
-            state = cls.name_to_state[name]
-            assert state.output_states == output_states
+        missing_classes = []
+        wrong_outputs = []
+        for state_name, annotation in graph.__annotations__.items():
+            output_names = set(re.findall(r"\w+", annotation))
+            state = cls.name_to_state.get(state_name)
+            if state:
+                actual_output_names = {
+                    out.__name__
+                    for out in state.output_states
+                }
+                if output_names != actual_output_names:
+                    wrong_outputs.append((state, output_names, actual_output_names))
+            else:
+                missing_classes.append((state_name, output_names))
+
+        if not (missing_classes or wrong_outputs):
+            return
+
+        message = "Incorrect summary:\n"
+
+        if missing_classes:
+            message += "Missing states:\n\n"
+            for state_name, output_names in missing_classes:
+                message += f"class {state_name}({cls.__name__}):"
+                if output_names:
+                    for output in output_names:
+                        message += f"""
+    def to_{snake(output)}(self) -> [{output}]:
+        pass\n\n\n"""
+                else:
+                    message += "    pass\n\n\n"
+
+        if wrong_outputs:
+            message += "Wrong outputs:\n\n"
+            for state, output_names, actual_output_names in wrong_outputs:
+                message += f"Outputs of {state.__name__}:\n"
+                message += f"According to summary       : {', '.join(sorted(output_names))}\n"
+                message += f"According to actual classes: {', '.join(sorted(actual_output_names))}\n\n"
+
+        raise IncorrectSummary(message)
 
 
 class AbstractState(metaclass=StateMeta):
