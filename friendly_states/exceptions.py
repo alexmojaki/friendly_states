@@ -24,3 +24,8 @@ class MultipleMachineAncestors(StateMachineException):
 
 class IncorrectSummary(StateMachineException):
     pass
+
+
+class InheritedFromState(StateMachineException):
+    pass
+

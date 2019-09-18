@@ -5,7 +5,8 @@ from contextlib import contextmanager
 import pytest
 
 from friendly_states.core import AttributeState, IncorrectInitialState
-from friendly_states.exceptions import StateChangedElsewhere, IncorrectSummary, MultipleMachineAncestors
+from friendly_states.exceptions import StateChangedElsewhere, IncorrectSummary, MultipleMachineAncestors, \
+    InheritedFromState
 
 
 class TrafficLightMachine(AttributeState):
@@ -154,7 +155,10 @@ def test_abstract_classes():
         def to_loner(self) -> [Loner]:
             pass
 
-    class Child1(Parent):
+    class Mixin:
+        pass
+
+    class Child1(Mixin, Parent):
         def to_child2(self) -> [Child2]:
             pass
 
@@ -199,3 +203,33 @@ def test_multiple_machines():
             pass
 
         str(State)
+
+
+def test_inherit_from_state():
+    class MyMachine(AttributeState):
+        is_machine = True
+
+    class S1(MyMachine):
+        pass
+
+    with raises(
+            InheritedFromState,
+            ancestor=S1,
+            machine=MyMachine,
+            message=("<class 'tests.test_inherit_from_state.<locals>.S2'> "
+                     "inherits from <class 'tests.test_inherit_from_state.<locals>.S1'> "
+                     "and both are part of the machine "
+                     "<class 'tests.test_inherit_from_state.<locals>.MyMachine'>, "
+                     "but <class 'tests.test_inherit_from_state.<locals>.S1'> is not abstract. "
+                     "If it should be, mark it with is_abstract = True. "
+                     "You cannot inherit from actual state classes."),
+    ):
+        class S2(S1):
+            pass
+
+        str(S2)
+
+
+def test_complete_non_machine():
+    with pytest.raises(ValueError):
+        AttributeState.complete()

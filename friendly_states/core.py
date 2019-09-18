@@ -6,7 +6,7 @@ from typing import Type
 
 from littleutils import only
 
-from friendly_states.exceptions import IncorrectSummary
+from friendly_states.exceptions import IncorrectSummary, InheritedFromState
 from .exceptions import StateChangedElsewhere, IncorrectInitialState, MultipleMachineAncestors
 from .utils import snake
 
@@ -62,9 +62,14 @@ class StateMeta(ABCMeta):
                 # This ancestor is unrelated to state machines
                 continue
             if not ancestor.is_abstract:
-                raise ValueError(f"{cls} inherits from {ancestor} and both are part of the machine {machine}, "
-                                 f"but {ancestor} is not abstract. If it should be, mark it with is_abstract = True. "
-                                 f"You cannot inherit from actual state classes.")
+                raise InheritedFromState(
+                    "{cls} inherits from {ancestor} and both are part of the machine {machine}, "
+                    "but {ancestor} is not abstract. If it should be, mark it with is_abstract = True. "
+                    "You cannot inherit from actual state classes.",
+                    cls=cls,
+                    ancestor=ancestor,
+                    machine=machine,
+                )
 
         machine.subclasses.add(cls)
 
