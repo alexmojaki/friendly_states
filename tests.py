@@ -6,7 +6,8 @@ import pytest
 
 from friendly_states.core import AttributeState, IncorrectInitialState
 from friendly_states.exceptions import StateChangedElsewhere, IncorrectSummary, MultipleMachineAncestors, \
-    InheritedFromState
+    InheritedFromState, CannotInferOutputState, DuplicateStateNames, DuplicateOutputStates, UnknownOutputState, \
+    ReturnedInvalidState
 
 
 class TrafficLightMachine(AttributeState):
@@ -62,8 +63,8 @@ OtherMachine.complete()
 
 
 @contextmanager
-def raises(cls, match=None, **kwargs):
-    with pytest.raises(cls, match=match) as exc_info:
+def raises(exception_class, match=None, **kwargs):
+    with pytest.raises(exception_class, match=match) as exc_info:
         yield
     exc = exc_info.value
     for key, value in kwargs.items():
@@ -83,7 +84,7 @@ def test_transitions():
             IncorrectInitialState,
             instance=light,
             desired=Red,
-            current=Green,
+            state=Green,
             message='StatefulThing(state=Green) should be in state Red but is actually in state Green',
     ):
         Red(light)
@@ -94,8 +95,8 @@ def test_state_changed_elsewhere():
     with raises(
             StateChangedElsewhere,
             instance=obj,
-            current=State2,
-            state=State1,
+            state=State2,
+            desired=State1,
             message="The state of StatefulThing(state=State2) has changed to State2 "
                     "since instantiating State1. "
                     "Did you change the state inside a transition method? Don't.",
@@ -240,3 +241,132 @@ def test_inherit_from_state():
 def test_complete_non_machine():
     with pytest.raises(ValueError):
         AttributeState.complete()
+
+
+def test_multiple_output_states():
+    class Machine(AttributeState):
+        is_machine = True
+
+        class Summary:
+            S1: [S2, S3]
+            S2: []
+            S3: []
+
+    class S1(Machine):
+        def transit(self, out) -> [S2, S3]:
+            if out == 1:
+                return S2
+            if out == 2:
+                return S3
+            if out == 4:
+                return 3
+
+    class S2(Machine):
+        pass
+
+    class S3(Machine):
+        pass
+
+    Machine.complete()
+
+    thing = StatefulThing(S1)
+    assert thing.state is S1
+    S1(thing).transit(1)
+    assert thing.state is S2
+
+    thing = StatefulThing(S1)
+    S1(thing).transit(2)
+    assert thing.state is S3
+
+    thing = StatefulThing(S1)
+    with raises(
+            CannotInferOutputState,
+            output_states={S2, S3},
+            func=S1.transit.__wrapped__,
+            match=r"This transition <function test_multiple_output_states.<locals>.S1.transit at 0x\w+> "
+                  r"has multiple output states (\{S2, S3\}|\{S3, S2\}), you must return one.",
+    ):
+        S1(thing).transit(3)
+
+    thing = StatefulThing(S1)
+    with raises(
+            ReturnedInvalidState,
+            output_states={S2, S3},
+            func=S1.transit.__wrapped__,
+            result=3,
+            match=r"The transition <function test_multiple_output_states.<locals>.S1.transit at 0x\w+> "
+                  r"returned 3, which is not in the declared output states (\{S2, S3\}|\{S3, S2\})",
+    ):
+        S1(thing).transit(4)
+
+
+def test_duplicate_state_names():
+    class Machine(AttributeState):
+        is_machine = True
+
+    class S(Machine):
+        pass
+
+    s1 = S
+
+    class S(Machine):
+        pass
+
+    s2 = S
+
+    with raises(
+            DuplicateStateNames,
+            states={s1, s2},
+            message="Some of the states frozenset({S, S}) in this machine have the same name.",
+    ):
+        Machine.complete()
+
+
+def test_duplicate_output_states():
+    class Machine(AttributeState):
+        is_machine = True
+
+    class S1(Machine):
+        def transit(self, out) -> [S2, S2]:
+            pass
+
+    class S2(Machine):
+        pass
+
+    with raises(
+            DuplicateOutputStates,
+            func=S1.transit,
+            cls=S1,
+            output_names=["S2", "S2"],
+            match=r"The transition function "
+                  r"<function test_duplicate_output_states.<locals>.S1.transit at 0x\w+> "
+                  r"in the class S1 declares some output states more than once: \['S2', 'S2'\]",
+    ):
+        Machine.complete()
+
+
+def test_unknown_output_state():
+    class Machine(AttributeState):
+        is_machine = True
+
+    class S1(Machine):
+        def transit(self, out) -> [S2]:
+            pass
+
+    class S2:
+        pass
+
+    with raises(
+            UnknownOutputState,
+            func=S1.transit,
+            cls=S1,
+            name="S2",
+            states={S1},
+            match=r"The transition function "
+                  r"<function test_unknown_output_state.<locals>.S1.transit at 0x\w+> "
+                  r"in the class S1 declares an output state S2 "
+                  r"which doesn't exist in the state machine. "
+                  r"The available states are frozenset\(\{S1\}\). "
+                  r"Did you forget to inherit from the machine\?",
+    ):
+        Machine.complete()

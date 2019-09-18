@@ -6,7 +6,8 @@ from typing import Type
 
 from littleutils import only
 
-from friendly_states.exceptions import IncorrectSummary, InheritedFromState
+from friendly_states.exceptions import IncorrectSummary, InheritedFromState, CannotInferOutputState, \
+    DuplicateStateNames, DuplicateOutputStates, UnknownOutputState, ReturnedInvalidState, GetStateDidNotReturnState
 from .exceptions import StateChangedElsewhere, IncorrectInitialState, MultipleMachineAncestors
 from .utils import snake
 
@@ -87,7 +88,11 @@ class StateMeta(ABCMeta):
             if not sub.is_abstract
         )
         cls.name_to_state = {state.__name__: state for state in cls.states}
-        assert len(cls.states) == len(cls.name_to_state)
+        if len(cls.states) != len(cls.name_to_state):
+            raise DuplicateStateNames(
+                "Some of the states {states} in this machine have the same name.",
+                states=cls.states,
+            )
 
         for sub in cls.subclasses:
             transitions = []
@@ -101,7 +106,11 @@ class StateMeta(ABCMeta):
                 if not (annotation and annotation[0] == "[" and annotation[-1] == "]"):
                     continue
 
-                transition = sub._make_transition_wrapper(func, annotation)
+                output_names = re.findall(r"\w+", annotation)
+                if not output_names:
+                    continue
+
+                transition = sub._make_transition_wrapper(func, output_names)
                 transitions.append(transition)
 
                 # Replace the function
@@ -113,14 +122,32 @@ class StateMeta(ABCMeta):
         if summary:
             cls.check_graph(summary)
 
-    def _make_transition_wrapper(cls, func, annotation):
-        output_names = re.findall(r"\w+", annotation)
-        assert len(output_names) >= 1
-        output_states = {
-            cls.name_to_state[name]
-            for name in output_names
-        }
-        assert len(output_states) == len(output_names)
+    def _make_transition_wrapper(cls, func, output_names):
+        if len(set(output_names)) != len(output_names):
+            raise DuplicateOutputStates(
+                "The transition function {func} in the class {cls} "
+                "declares some output states more than once: {output_names}",
+                func=func,
+                cls=cls,
+                output_names=output_names,
+            )
+
+        try:
+            output_states = {
+                cls.name_to_state[name]
+                for name in output_names
+            }
+        except KeyError as e:
+            raise UnknownOutputState(
+                "The transition function {func} in the class {cls} "
+                "declares an output state {name} which doesn't exist "
+                "in the state machine. The available states are {states}. "
+                "Did you forget to inherit from the machine?",
+                func=func,
+                cls=cls,
+                states=cls.states,
+                name=e.args[0],
+            ) from e
 
         @functools.wraps(func)
         def wrapper(self: AbstractState, *args, **kwargs):
@@ -128,22 +155,28 @@ class StateMeta(ABCMeta):
             if result is None:
                 # Infer the next state based on the annotation
                 if len(output_states) > 1:
-                    raise ValueError(f"This transition has multiple output states {output_names}, you must return one")
+                    raise CannotInferOutputState(
+                        "This transition {func} has multiple output states {output_states}, "
+                        "you must return one.",
+                        output_states=output_states,
+                        func=func,
+                    )
                 result = only(output_states)
 
-            # Ensure the next state is listed in the annotation
-            assert result in output_states
-
-            # Do the state change
-            current = self.get_state()
-            if current is not type(self):
-                raise StateChangedElsewhere(
-                    "The state of {instance} has changed to {current} since instantiating {state}. "
-                    "Did you change the state inside a transition method? Don't.",
-                    instance=self.inst,
-                    current=current,
-                    state=type(self),
+            if result not in output_states:
+                raise ReturnedInvalidState(
+                    "The transition {func} returned {result}, "
+                    "which is not in the declared output states {output_states}",
+                    output_states=output_states,
+                    func=func,
+                    result=result,
                 )
+
+            current = self._get_and_check_state(
+                StateChangedElsewhere,
+                "The state of {instance} has changed to {state} since instantiating {desired}. "
+                "Did you change the state inside a transition method? Don't."
+            )
 
             self.set_state(current, result)
 
@@ -291,18 +324,29 @@ class AbstractState(metaclass=StateMeta):
 
     def __init__(self, inst):
         self.inst = inst
-        current = self.get_state()
-        if not (isinstance(current, type) and issubclass(current, AbstractState)):
-            raise ValueError(f"get_instance_state is supposed to return a subclass of {AbstractState.__name__}, "
-                             f"but it returned {current}")
-        desired = type(self)
-        if current is not desired:
-            raise IncorrectInitialState(
-                "{instance} should be in state {desired} but is actually in state {current}",
-                instance=self.inst,
-                desired=desired,
-                current=current,
+        self._get_and_check_state(
+            IncorrectInitialState,
+            "{instance} should be in state {desired} but is actually in state {state}"
+        )
+
+    def _get_and_check_state(self, exception_class, message_format):
+        state = self.get_state()
+        if not (isinstance(state, type) and issubclass(state, AbstractState)):
+            raise GetStateDidNotReturnState(
+                f"get_state is supposed to return a subclass of {AbstractState.__name__}, "
+                "but it returned {current}",
+                returned=state,
             )
+        desired = type(self)
+        if state is not desired:
+            raise exception_class(
+                message_format,
+                instancet=self.inst,
+                desired=desired,
+                state=state,
+            )
+
+        return state
 
     @abstractmethod
     def get_state(self) -> 'Type[AbstractState]':

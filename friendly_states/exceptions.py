@@ -29,3 +29,26 @@ class IncorrectSummary(StateMachineException):
 class InheritedFromState(StateMachineException):
     pass
 
+
+class CannotInferOutputState(StateMachineException):
+    pass
+
+
+class DuplicateStateNames(StateMachineException):
+    pass
+
+
+class DuplicateOutputStates(StateMachineException):
+    pass
+
+
+class UnknownOutputState(StateMachineException):
+    pass
+
+
+class ReturnedInvalidState(StateMachineException):
+    pass
+
+
+class GetStateDidNotReturnState(StateMachineException):
+    pass
