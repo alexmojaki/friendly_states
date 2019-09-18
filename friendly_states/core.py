@@ -252,14 +252,14 @@ class StateMeta(ABCMeta):
         missing_classes = []
         wrong_outputs = []
         for state_name, annotation in graph.__annotations__.items():
-            output_names = set(re.findall(r"\w+", annotation))
+            output_names = re.findall(r"\w+", annotation)
             state = cls.name_to_state.get(state_name)
             if state:
                 actual_output_names = {
                     out.__name__
                     for out in state.output_states
                 }
-                if output_names != actual_output_names:
+                if set(output_names) != actual_output_names:
                     wrong_outputs.append((state, output_names, actual_output_names))
             else:
                 missing_classes.append((state_name, output_names))
@@ -270,16 +270,16 @@ class StateMeta(ABCMeta):
         message = "\n"
 
         if missing_classes:
-            message += "Missing states:\n\n"
+            message += "Missing states:"
             for state_name, output_names in missing_classes:
-                message += f"class {state_name}({cls.__name__}):"
+                message += f"\n\nclass {state_name}({cls.__name__}):"
                 if output_names:
                     for output in output_names:
                         message += f"""
     def to_{snake(output)}(self) -> [{output}]:
-        pass\n\n\n"""
+        pass\n"""
                 else:
-                    message += "    pass\n\n\n"
+                    message += "\n    pass\n\n\n"
 
         if wrong_outputs:
             message += "Wrong outputs:\n\n"

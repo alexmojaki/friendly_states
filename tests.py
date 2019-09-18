@@ -370,3 +370,38 @@ def test_unknown_output_state():
                   r"Did you forget to inherit from the machine\?",
     ):
         Machine.complete()
+
+
+def test_generate_classes():
+    class Machine(AttributeState):
+        is_machine = True
+
+        class Summary:
+            S1: [S2, S3]
+            S2: [S3]
+            S3: []
+
+    with raises(
+            IncorrectSummary,
+            message="""
+Missing states:
+
+class S1(Machine):
+    def to_s2(self) -> [S2]:
+        pass
+
+    def to_s3(self) -> [S3]:
+        pass
+
+
+class S2(Machine):
+    def to_s3(self) -> [S3]:
+        pass
+
+
+class S3(Machine):
+    pass
+
+
+"""):
+        Machine.complete()
