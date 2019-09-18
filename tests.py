@@ -151,8 +151,15 @@ def test_abstract_classes():
 
     class Parent(MyMachine):
         is_abstract = True
+        x = 9
 
         def to_loner(self) -> [Loner]:
+            pass
+
+        def foo(self) -> Loner:
+            return Loner(None)
+
+        def bar(self):
             pass
 
     class Mixin:
