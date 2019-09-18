@@ -229,7 +229,7 @@ class StateMeta(ABCMeta):
         if not (missing_classes or wrong_outputs):
             return
 
-        message = "Incorrect summary:\n"
+        message = "\n"
 
         if missing_classes:
             message += "Missing states:\n\n"

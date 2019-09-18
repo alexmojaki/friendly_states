@@ -1,6 +1,9 @@
 class StateMachineException(Exception):
     def __init__(self, message_format, **kwargs):
-        self.message = message_format.format(**kwargs)
+        if kwargs:
+            self.message = message_format.format(**kwargs)
+        else:
+            self.message = message_format
         self.__dict__.update(**kwargs)
 
     def __str__(self):
@@ -19,5 +22,5 @@ class MultipleMachineAncestors(StateMachineException):
     pass
 
 
-class IncorrectSummary(Exception):
+class IncorrectSummary(StateMachineException):
     pass

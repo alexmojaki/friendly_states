@@ -5,7 +5,7 @@ from contextlib import contextmanager
 import pytest
 
 from friendly_states.core import AttributeState, IncorrectInitialState
-from friendly_states.exceptions import StateChangedElsewhere, IncorrectSummary
+from friendly_states.exceptions import StateChangedElsewhere, IncorrectSummary, MultipleMachineAncestors
 
 
 class TrafficLightMachine(AttributeState):
@@ -39,6 +39,9 @@ class StatefulThing:
     def __init__(self, state):
         self.state = state
 
+    def __repr__(self):
+        return f"{self.__class__.__name__}(state={self.state})"
+
 
 class OtherMachine(AttributeState):
     is_machine = True
@@ -58,8 +61,8 @@ OtherMachine.complete()
 
 
 @contextmanager
-def raises(cls, **kwargs):
-    with pytest.raises(cls) as exc_info:
+def raises(cls, match=None, **kwargs):
+    with pytest.raises(cls, match=match) as exc_info:
         yield
     exc = exc_info.value
     for key, value in kwargs.items():
@@ -75,13 +78,27 @@ def test_transitions():
     assert light.state is Red
     Red(light).go()
     assert light.state is Green
-    with raises(IncorrectInitialState, instance=light, desired=Red, current=Green):
+    with raises(
+            IncorrectInitialState,
+            instance=light,
+            desired=Red,
+            current=Green,
+            message='StatefulThing(state=Green) should be in state Red but is actually in state Green',
+    ):
         Red(light)
 
 
 def test_state_changed_elsewhere():
     obj = StatefulThing(State1)
-    with raises(StateChangedElsewhere, instance=obj, current=State2, state=State1):
+    with raises(
+            StateChangedElsewhere,
+            instance=obj,
+            current=State2,
+            state=State1,
+            message="The state of StatefulThing(state=State2) has changed to State2 "
+                    "since instantiating State1. "
+                    "Did you change the state inside a transition method? Don't.",
+    ):
         State1(obj).to_2()
 
 
@@ -100,7 +117,16 @@ def test_graph():
         Yellow: [Red]
         Red: [Green]
 
-    with pytest.raises(IncorrectSummary):
+    with raises(
+            IncorrectSummary,
+            message="""
+Wrong outputs:
+
+Outputs of Green:
+According to summary       : Red, Yellow
+According to actual classes: Yellow
+
+"""):
         TrafficLightMachine.check_graph(Graph)
 
 
@@ -137,3 +163,39 @@ def test_abstract_classes():
             pass
 
     MyMachine.complete()
+
+
+def test_multiple_machines():
+    class Machine1(AttributeState):
+        is_machine = True
+
+    with raises(
+            MultipleMachineAncestors,
+            message=("Multiple machine classes found in ancestors of "
+                     "<class 'tests.test_multiple_machines.<locals>.Machine2'>: "
+                     "[<class 'tests.test_multiple_machines.<locals>.Machine2'>,"
+                     " <class 'tests.test_multiple_machines.<locals>.Machine1'>]")
+    ):
+        class Machine2(Machine1):
+            is_machine = True
+
+        str(Machine2)
+
+    class Machine3(AttributeState):
+        is_machine = True
+
+    class Machine4(AttributeState):
+        is_machine = True
+
+    with raises(
+            MultipleMachineAncestors,
+            machine_classes=[Machine3, Machine4],
+            message=("Multiple machine classes found in ancestors of "
+                     "<class 'tests.test_multiple_machines.<locals>.State'>: "
+                     "[<class 'tests.test_multiple_machines.<locals>.Machine3'>,"
+                     " <class 'tests.test_multiple_machines.<locals>.Machine4'>]"),
+    ):
+        class State(Machine3, Machine4):
+            pass
+
+        str(State)
