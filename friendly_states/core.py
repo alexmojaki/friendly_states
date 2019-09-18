@@ -341,7 +341,7 @@ class AbstractState(metaclass=StateMeta):
         if state is not desired:
             raise exception_class(
                 message_format,
-                instancet=self.inst,
+                instance=self.inst,
                 desired=desired,
                 state=state,
             )
