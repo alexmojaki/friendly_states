@@ -4,10 +4,10 @@ from contextlib import contextmanager
 
 import pytest
 
-from friendly_states.core import AttributeState, IncorrectInitialState
+from friendly_states.core import AttributeState, IncorrectInitialState, AbstractState, MappingKeyState
 from friendly_states.exceptions import StateChangedElsewhere, IncorrectSummary, MultipleMachineAncestors, \
     InheritedFromState, CannotInferOutputState, DuplicateStateNames, DuplicateOutputStates, UnknownOutputState, \
-    ReturnedInvalidState
+    ReturnedInvalidState, GetStateDidNotReturnState
 
 
 class TrafficLightMachine(AttributeState):
@@ -111,6 +111,8 @@ def test_attributes():
     assert Green.slow_down.output_states == {Yellow}
     assert TrafficLightMachine.states == {Green, Yellow, Red}
     assert OtherMachine.states == {State1, State2}
+    with pytest.raises(AttributeError):
+        str(TrafficLightMachine.output_states)
 
 
 def test_graph():
@@ -135,10 +137,11 @@ According to actual classes: Yellow
 def test_repr():
     assert repr(TrafficLightMachine) == "<class 'tests.TrafficLightMachine'>"
     assert repr(Green) == "Green"
+    assert repr(Green(StatefulThing(Green))) == "Green(inst=StatefulThing(state=Green))"
 
 
 def test_abstract_classes():
-    class MyMachine(AttributeState):
+    class MyMachine(MappingKeyState):
         is_machine = True
 
         class Summary:
@@ -163,6 +166,9 @@ def test_abstract_classes():
         def bar(self):
             pass
 
+        def spam(self) -> []:
+            pass
+
     class Mixin:
         pass
 
@@ -175,6 +181,14 @@ def test_abstract_classes():
             pass
 
     MyMachine.complete()
+
+    thing = dict(state=Child1)
+    Child1(thing).to_child2()
+    assert thing["state"] is Child2
+    Child2(thing).to_child1()
+    assert thing["state"] is Child1
+    Child1(thing).to_loner()
+    assert thing["state"] is Loner
 
 
 def test_multiple_machines():
@@ -405,3 +419,20 @@ class S3(Machine):
 
 """):
         Machine.complete()
+
+
+def test_bad_get_state():
+    class MyState(AbstractState):
+        def get_state(self):
+            return 3
+
+        def set_state(self, previous_state, new_state):
+            pass
+
+    with raises(
+            GetStateDidNotReturnState,
+            returned=3,
+            message="get_state is supposed to return a subclass of AbstractState, "
+                    "but it returned 3",
+    ):
+        MyState(None)

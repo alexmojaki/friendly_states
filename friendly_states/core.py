@@ -334,7 +334,7 @@ class AbstractState(metaclass=StateMeta):
         if not (isinstance(state, type) and issubclass(state, AbstractState)):
             raise GetStateDidNotReturnState(
                 f"get_state is supposed to return a subclass of {AbstractState.__name__}, "
-                "but it returned {current}",
+                "but it returned {returned}",
                 returned=state,
             )
         desired = type(self)
