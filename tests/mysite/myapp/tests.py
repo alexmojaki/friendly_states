@@ -1,7 +1,9 @@
 from django.db import IntegrityError
 from django.db.transaction import atomic
 from django.test import TestCase
-from myapp.models import MyModel, Green, Yellow, Red, DefaultableState, NullableState
+
+from friendly_states.django import StateField
+from myapp.models import MyModel, Green, Yellow, Red, DefaultableState, NullableState, TrafficLightMachine
 
 
 class StatesTestCase(TestCase):
@@ -54,3 +56,25 @@ class StatesTestCase(TestCase):
             with atomic():
                 with self.assertRaises(IntegrityError):
                     MyModel.objects.create(**options)
+
+    def test_deconstruct(self):
+        def check(field_kwargs, deconstructed_kwargs):
+            field = StateField(TrafficLightMachine, **field_kwargs)
+            *_, args, kwargs = field.deconstruct()
+            self.assertEqual(args, (TrafficLightMachine,))
+            self.assertEqual(kwargs, deconstructed_kwargs)
+
+        check(
+            dict(),
+            dict(),
+        )
+
+        check(
+            dict(default=Red),
+            dict(default="Red"),
+        )
+
+        check(
+            dict(verbose_name="STUFF"),
+            dict(verbose_name="STUFF"),
+        )
