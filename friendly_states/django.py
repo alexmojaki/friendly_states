@@ -17,11 +17,20 @@ class StateField(models.CharField):
     empty_strings_allowed = False
 
     def __init__(self, machine, *args, **kwargs):
-        if not machine.is_machine:
+        if not (isinstance(machine, StateMeta) and machine.is_machine):
             raise ValueError(f"{machine} is not a state machine root")
 
+        if not issubclass(machine, DjangoState):
+            raise TypeError(f"The state machine must be a subclass of DjangoState")
+
+        for slug in machine.slug_to_state:
+            if not isinstance(slug, str):
+                raise ValueError(
+                    f"The slug {repr(slug)} is invalid. Slugs should be strings."
+                )
+
         self.machine = machine
-        kwargs["max_length"] = 64
+        kwargs["max_length"] = max(map(len, machine.slug_to_state))
         kwargs.setdefault("verbose_name", machine.label)
         kwargs["choices"] = [
             (state.slug, state.label)
@@ -45,34 +54,35 @@ class StateField(models.CharField):
         return self.to_python(value)
 
     def to_python(self, value):
-        machine = self.machine
-        if value is None or value in machine.states:
+        if value is None:
             return value
 
         if isinstance(value, StateMeta):
-            raise ValidationError(
-                f"{value} is a state class but isn't one of the states "
-                f"in the machine {machine.__name__}, which are {machine.states}",
-            )
+            return value
 
-        if not isinstance(value, str):
+        return self.machine.slug_to_state[value]
+
+    def get_prep_value(self, value):
+        machine = self.machine
+        if isinstance(value, StateMeta):
+            if value not in machine.states:
+                raise ValidationError(
+                    f"{value} is a state class but isn't one of the states "
+                    f"in the machine {machine.__name__}, which are "
+                    f"{sorted(machine.states, key=lambda c: c.__name__)}",
+                )
+            return value.slug
+        elif isinstance(value, str):
+            if value not in machine.slug_to_state:
+                raise ValidationError(
+                    f"{value} is not one of the valid slugs for this machine: "
+                    f"{sorted(state.slug for state in machine.states)}",
+                )
+        elif value is not None:
             raise ValidationError(
                 f"{self.name} should be a state class, a string, or None",
             )
 
-        try:
-            return machine.slug_to_state[value]
-        except KeyError:
-            pass
-
-        raise ValidationError(
-            f"{value} is not one of the valid slugs for this machine: "
-            f"{sorted(state.slug for state in machine.states)}",
-        )
-
-    def get_prep_value(self, value):
-        if isinstance(value, StateMeta):
-            return value.slug
         return value
 
     def get_db_prep_value(self, value, connection, prepared=False):

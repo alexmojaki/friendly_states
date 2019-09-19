@@ -96,11 +96,15 @@ class StateMeta(ABCMeta):
                 states=cls.states,
             )
 
-        cls.slug_to_state = {state.slug: state for state in cls.states}
+        slug_to_state = [(state.slug, state) for state in cls.states]
+        cls.slug_to_state = dict(slug_to_state)
         if len(cls.states) != len(cls.slug_to_state):
             raise DuplicateStateNames(
-                "Some of the states {states} in this machine have the same slug.",
-                states=cls.states,
+                "Some of the states in this machine have the same slug: {slug_to_state}",
+                slug_to_state=sorted(
+                    slug_to_state,
+                    key=lambda pair: (pair[0], pair[1].__name__)
+                ),
             )
 
         for sub in cls.subclasses:
@@ -212,14 +216,18 @@ class StateMeta(ABCMeta):
         If a state (a State subclass) is renamed, this should be set explicitly as a class attribute
         to the original value to avoid data problems.
         """
-        return cls.__name__
+        return cls.__dict__.get("slug", cls.__name__)
 
     @property
-    def label(self):
+    def label(cls):
         """
         Display name of state for forms etc.
         """
-        return snake(self.slug).replace("_", " ").title()
+        result = cls.__dict__.get("label")
+        if result is not None:
+            return result
+        else:
+            return snake(cls.slug).replace("_", " ").title()
 
     @property
     def is_state(cls):

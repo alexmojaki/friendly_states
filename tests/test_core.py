@@ -135,7 +135,7 @@ According to actual classes: Yellow
 
 
 def test_repr():
-    assert repr(TrafficLightMachine) == "<class 'tests.TrafficLightMachine'>"
+    assert repr(TrafficLightMachine) == "<class 'tests.test_core.TrafficLightMachine'>"
     assert repr(Green) == "Green"
     assert repr(Green(StatefulThing(Green))) == "Green(inst=StatefulThing(state=Green))"
 
@@ -198,9 +198,9 @@ def test_multiple_machines():
     with raises(
             MultipleMachineAncestors,
             message=("Multiple machine classes found in ancestors of "
-                     "<class 'tests.test_multiple_machines.<locals>.Machine2'>: "
-                     "[<class 'tests.test_multiple_machines.<locals>.Machine2'>,"
-                     " <class 'tests.test_multiple_machines.<locals>.Machine1'>]")
+                     "<class 'tests.test_core.test_multiple_machines.<locals>.Machine2'>: "
+                     "[<class 'tests.test_core.test_multiple_machines.<locals>.Machine2'>,"
+                     " <class 'tests.test_core.test_multiple_machines.<locals>.Machine1'>]")
     ):
         class Machine2(Machine1):
             is_machine = True
@@ -217,9 +217,9 @@ def test_multiple_machines():
             MultipleMachineAncestors,
             machine_classes=[Machine3, Machine4],
             message=("Multiple machine classes found in ancestors of "
-                     "<class 'tests.test_multiple_machines.<locals>.State'>: "
-                     "[<class 'tests.test_multiple_machines.<locals>.Machine3'>,"
-                     " <class 'tests.test_multiple_machines.<locals>.Machine4'>]"),
+                     "<class 'tests.test_core.test_multiple_machines.<locals>.State'>: "
+                     "[<class 'tests.test_core.test_multiple_machines.<locals>.Machine3'>,"
+                     " <class 'tests.test_core.test_multiple_machines.<locals>.Machine4'>]"),
     ):
         class State(Machine3, Machine4):
             pass
@@ -238,11 +238,11 @@ def test_inherit_from_state():
             InheritedFromState,
             ancestor=S1,
             machine=MyMachine,
-            message=("<class 'tests.test_inherit_from_state.<locals>.S2'> "
-                     "inherits from <class 'tests.test_inherit_from_state.<locals>.S1'> "
+            message=("<class 'tests.test_core.test_inherit_from_state.<locals>.S2'> "
+                     "inherits from <class 'tests.test_core.test_inherit_from_state.<locals>.S1'> "
                      "and both are part of the machine "
-                     "<class 'tests.test_inherit_from_state.<locals>.MyMachine'>, "
-                     "but <class 'tests.test_inherit_from_state.<locals>.S1'> is not abstract. "
+                     "<class 'tests.test_core.test_inherit_from_state.<locals>.MyMachine'>, "
+                     "but <class 'tests.test_core.test_inherit_from_state.<locals>.S1'> is not abstract. "
                      "If it should be, mark it with is_abstract = True. "
                      "You cannot inherit from actual state classes."),
     ):
@@ -436,3 +436,32 @@ def test_bad_get_state():
                     "but it returned 3",
     ):
         MyState(None)
+
+
+def test_slugs_and_labels():
+    class Machine(AttributeState):
+        is_machine = True
+
+    class S1(Machine):
+        slug = "AbcDef"
+
+    class S2(Machine):
+        slug = "AbcDef"
+        label = "A Label"
+
+    assert S1.slug == "AbcDef"
+    assert S1.label == "Abc Def"
+
+    assert S2.slug == "AbcDef"
+    assert S2.label == "A Label"
+
+    with raises(
+            DuplicateStateNames,
+            slug_to_state=[
+                ("AbcDef", S1),
+                ("AbcDef", S2),
+            ],
+            message="Some of the states in this machine have the same slug: "
+                    "[('AbcDef', S1), ('AbcDef', S2)]",
+    ):
+        Machine.complete()
