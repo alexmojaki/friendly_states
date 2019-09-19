@@ -15,6 +15,7 @@ from .utils import snake
 class StateMeta(ABCMeta):
     subclasses = None
     name_to_state = None
+    slug_to_state = None
     states = None
     direct_transitions = None
 
@@ -87,10 +88,18 @@ class StateMeta(ABCMeta):
             sub for sub in cls.subclasses
             if not sub.is_abstract
         )
+
         cls.name_to_state = {state.__name__: state for state in cls.states}
         if len(cls.states) != len(cls.name_to_state):
             raise DuplicateStateNames(
                 "Some of the states {states} in this machine have the same name.",
+                states=cls.states,
+            )
+
+        cls.slug_to_state = {state.slug: state for state in cls.states}
+        if len(cls.states) != len(cls.slug_to_state):
+            raise DuplicateStateNames(
+                "Some of the states {states} in this machine have the same slug.",
                 states=cls.states,
             )
 
@@ -211,13 +220,6 @@ class StateMeta(ABCMeta):
         Display name of state for forms etc.
         """
         return snake(self.slug).replace("_", " ").title()
-
-    @property
-    def slug_label(self):
-        """
-        Minor convenience for constructing lists of choices for Django.
-        """
-        return self.slug, self.label
 
     @property
     def is_state(cls):

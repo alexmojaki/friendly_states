@@ -1,75 +1,77 @@
+from django.core.exceptions import ValidationError
 from django.db import models
-from littleutils import only
 
 from friendly_states.core import StateMeta, AttributeState
 
 
 class DjangoState(AttributeState):
-    @classmethod
-    def state_db_field(cls, **kwargs):
-        """
-        To be used directly inside a Django database model declaration.
-        Returns a pair:
-         - field: a models.CharField storing a string containing the slug of a state
-         - state: a property which looks up the actual state class from the field's string value
-             This property is intentionally read only because changing the state
-             should be done with transition methods.
-
-        Example usage:
-
-            class MyModel(django.db.models.Model):
-                state_slug, state = MyMachine.state_db_field(default=MyInitialState)
-
-        Then later:
-
-            inst = MyModel()
-            MyInitialState(inst).do_transition()
-
-        or:
-
-            if inst.state is MyInitialState:
-                ...
-
-        or:
-
-            initial_objects = MyModel.objects.filter(state_slug=MyInitialState.slug)
-
-        The name of the second returned value should match state_attribute_name on this class
-        (the default is "state").
-
-        All keyword arguments are passed directly to the Django model field.
-        """
-
-        max_length = max(map(len, cls.slug_to_state)) * 2
-        assert kwargs.setdefault("max_length", max_length) >= max_length
-        kwargs.setdefault("verbose_name", "State")
-        default = kwargs.get("default")
-        if isinstance(default, StateMeta):
-            assert issubclass(default, cls)
-            kwargs["default"] = default.slug
-
-        field = models.CharField(
-            choices=[
-                state.slug_label
-                for state in cls.slug_to_state.values()
-            ],
-            **kwargs,
-        )
-
-        field._state_machine_class = cls
-
-        @property
-        def state(self):
-            slug = getattr(self, field.name)
-            return cls.slug_to_state.get(slug)
-
-        return field, state
+    auto_save = True
 
     def set_state(self, previous_state, new_state):
-        field = only(
-            f for f in type(self.inst)._meta.get_fields()
-            if hasattr(f, "_state_machine_class")
-            if isinstance(self, f._state_machine_class)
+        super().set_state(previous_state, new_state)
+        if self.auto_save:
+            self.inst.save()
+
+
+class StateField(models.CharField):
+    def __init__(self, machine, *args, **kwargs):
+        if not machine.is_machine:
+            raise ValueError(f"{machine} is not a state machine root")
+
+        self.machine = machine
+        kwargs["max_length"] = 64
+        kwargs.setdefault("verbose_name", machine.label)
+        kwargs["choices"] = [
+            (state.slug, state.label)
+            for state in machine.slug_to_state.values()
+        ]
+        super().__init__(*args, **kwargs)
+
+    def deconstruct(self):
+        name, path, args, kwargs = super().deconstruct()
+        del kwargs["max_length"]
+        del kwargs["choices"]
+        if kwargs["verbose_name"] == self.machine.label:
+            del kwargs["verbose_name"]
+
+        return name, path, (self.machine,), kwargs
+
+    def from_db_value(self, value, expression, connection):
+        return self.to_python(value)
+
+    def to_python(self, value):
+        machine = self.machine
+        if value is None or value in machine.states:
+            return value
+
+        if isinstance(value, StateMeta):
+            raise ValidationError(
+                f"{value} is a state class but isn't one of the states "
+                f"in the machine {machine.__name__}, which are {machine.states}",
+            )
+
+        if not isinstance(value, str):
+            raise ValidationError(
+                f"{self.name} should be a state class, a string, or None",
+            )
+
+        try:
+            return machine.slug_to_state[value]
+        except KeyError:
+            pass
+
+        raise ValidationError(
+            f"{value} is not one of the valid slugs for this machine: "
+            f"{sorted(state.slug for state in machine.states)}",
         )
-        setattr(self.inst, field.attname, new_state.slug)
-        self.inst.save()
+
+    def get_prep_value(self, value):
+        if isinstance(value, StateMeta):
+            return value.slug
+        return value
+
+    def get_db_prep_value(self, value, connection, prepared=False):
+        return self.get_prep_value(value)
+
+    def value_to_string(self, obj):
+        return self.get_prep_value(obj)
