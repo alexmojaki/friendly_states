@@ -32,5 +32,29 @@ class Red(TrafficLightMachine):
 TrafficLightMachine.complete()
 
 
+class NullableMachine(DjangoState):
+    is_machine = True
+
+
+class NullableState(NullableMachine):
+    pass
+
+
+NullableMachine.complete()
+
+
+class DefaultableMachine(DjangoState):
+    is_machine = True
+
+
+class DefaultableState(DefaultableMachine):
+    pass
+
+
+DefaultableMachine.complete()
+
+
 class MyModel(models.Model):
     state = StateField(TrafficLightMachine)
+    nullable_state = StateField(NullableMachine, null=True)
+    defaultable_state = StateField(DefaultableMachine, default=DefaultableState)

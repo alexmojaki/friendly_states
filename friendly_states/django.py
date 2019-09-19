@@ -14,6 +14,8 @@ class DjangoState(AttributeState):
 
 
 class StateField(models.CharField):
+    empty_strings_allowed = False
+
     def __init__(self, machine, *args, **kwargs):
         if not machine.is_machine:
             raise ValueError(f"{machine} is not a state machine root")
@@ -25,6 +27,8 @@ class StateField(models.CharField):
             (state.slug, state.label)
             for state in machine.slug_to_state.values()
         ]
+        if "default" in kwargs:
+            kwargs["default"] = self.value_to_string(kwargs["default"])
         super().__init__(*args, **kwargs)
 
     def deconstruct(self):
@@ -36,6 +40,7 @@ class StateField(models.CharField):
 
         return name, path, (self.machine,), kwargs
 
+    # noinspection PyUnusedLocal
     def from_db_value(self, value, expression, connection):
         return self.to_python(value)
 
