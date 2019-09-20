@@ -4,8 +4,6 @@ import re
 from abc import ABCMeta, abstractmethod
 from typing import Type
 
-from littleutils import only
-
 from friendly_states.exceptions import IncorrectSummary, InheritedFromState, CannotInferOutputState, \
     DuplicateStateNames, DuplicateOutputStates, UnknownOutputState, ReturnedInvalidState, GetStateDidNotReturnState
 from .exceptions import StateChangedElsewhere, IncorrectInitialState, MultipleMachineAncestors
@@ -185,7 +183,7 @@ class StateMeta(ABCMeta):
                         output_states=output_states,
                         func=func,
                     )
-                result = only(output_states)
+                (result,) = output_states
 
             if result not in output_states:
                 raise ReturnedInvalidState(
