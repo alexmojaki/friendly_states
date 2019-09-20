@@ -5,6 +5,7 @@ from friendly_states.core import StateMeta, AttributeState
 
 
 class DjangoState(AttributeState):
+    attr_name = None
     auto_save = True
 
     def set_state(self, previous_state, new_state):
@@ -48,6 +49,10 @@ class StateField(models.CharField):
             del kwargs["verbose_name"]
 
         return name, path, (self.machine,), kwargs
+
+    def contribute_to_class(self, cls, name, *args, **kwargs):
+        super().contribute_to_class(cls, name, *args, **kwargs)
+        self.machine.attr_name = self.attname
 
     # noinspection PyUnusedLocal
     def from_db_value(self, value, expression, connection):
