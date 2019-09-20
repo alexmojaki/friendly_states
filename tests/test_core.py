@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 from contextlib import contextmanager
 from types import SimpleNamespace
 
@@ -9,6 +10,14 @@ from friendly_states.core import AttributeState, IncorrectInitialState, Abstract
 from friendly_states.exceptions import StateChangedElsewhere, IncorrectSummary, MultipleMachineAncestors, \
     InheritedFromState, CannotInferOutputState, DuplicateStateNames, DuplicateOutputStates, UnknownOutputState, \
     ReturnedInvalidState, GetStateDidNotReturnState
+
+
+def my_deco(f):
+    @functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        return f(*args, **kwargs)
+
+    return wrapper
 
 
 class TrafficLightMachine(AttributeState):
@@ -21,6 +30,7 @@ class TrafficLightMachine(AttributeState):
 
 
 class Green(TrafficLightMachine):
+    @my_deco
     def slow_down(self) -> [Yellow]:
         pass
 
