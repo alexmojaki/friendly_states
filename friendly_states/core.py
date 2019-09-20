@@ -19,6 +19,7 @@ class StateMeta(ABCMeta):
     states = None
     direct_transitions = None
     is_complete = False
+    machine = None
 
     def __new__(mcs, name, bases, attrs):
         """
@@ -55,6 +56,8 @@ class StateMeta(ABCMeta):
 
         machine: StateMeta = machine_classes[0]
         assert issubclass(machine, AbstractState)
+
+        cls.machine = machine
 
         # This class is a machine root
         # It gets fresh collections for its states
@@ -341,6 +344,12 @@ class AbstractState(metaclass=StateMeta):
     """
 
     def __init__(self, inst):
+        if not type(self).is_complete:
+            raise ValueError(
+                f"This machine is not complete, call {self.machine.__name__}.complete() "
+                f"after declaring all states (subclasses).",
+            )
+
         self.inst = inst
         self._get_and_check_state(
             IncorrectInitialState,

@@ -429,13 +429,21 @@ def test_bad_get_state():
         def set_state(self, previous_state, new_state):
             pass
 
+    class Machine(MyState):
+        is_machine = True
+
+    class State(Machine):
+        pass
+
+    Machine.complete()
+
     with raises(
             GetStateDidNotReturnState,
             returned=3,
             message="get_state is supposed to return a subclass of AbstractState, "
                     "but it returned 3",
     ):
-        MyState(None)
+        State(None)
 
 
 def test_slugs_and_labels():
@@ -476,6 +484,21 @@ def test_already_complete():
             pass
 
         str(Purple)
+
+
+def test_ensure_complete():
+    class Machine(AttributeState):
+        is_machine = True
+
+    class S1(Machine):
+        pass
+
+    with pytest.raises(
+            ValueError,
+            match=r"This machine is not complete, call Machine.complete\(\) "
+                  r"after declaring all states \(subclasses\)."
+    ):
+        S1(Machine)
 
 
 def test_dynamic_attr_recipe():
