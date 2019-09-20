@@ -24,6 +24,12 @@ class StateField(models.CharField):
         if not issubclass(machine, DjangoState):
             raise TypeError(f"The state machine must be a subclass of DjangoState")
 
+        if not machine.is_complete:
+            raise ValueError(
+                f"This machine is not complete, call {machine.__name__}.complete() "
+                f"after declaring all states (subclasses).",
+            )
+
         for slug in machine.slug_to_state:
             if not isinstance(slug, str):
                 raise ValueError(

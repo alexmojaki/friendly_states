@@ -160,3 +160,15 @@ def test_invalid_default():
             match=r"sdf is not one of the valid slugs for this machine: \['S'\]",
     ):
         StateField(Machine, default="sdf")
+
+
+def test_not_complete():
+    class Machine(DjangoState):
+        is_machine = True
+
+    with pytest.raises(
+            ValueError,
+            match=r"This machine is not complete, call Machine.complete\(\) "
+                  r"after declaring all states \(subclasses\)."
+    ):
+        StateField(Machine)

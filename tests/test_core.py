@@ -475,4 +475,4 @@ def test_already_complete():
         class Purple(TrafficLightMachine):
             pass
 
-    str(Purple)
+        str(Purple)
