@@ -465,3 +465,14 @@ def test_slugs_and_labels():
                     "[('AbcDef', S1), ('AbcDef', S2)]",
     ):
         Machine.complete()
+
+
+def test_already_complete():
+    with raises(
+            ValueError,
+            match="This machine is already complete, you cannot add more subclasses.",
+    ):
+        class Purple(TrafficLightMachine):
+            pass
+
+    str(Purple)

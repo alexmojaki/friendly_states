@@ -18,6 +18,7 @@ class StateMeta(ABCMeta):
     slug_to_state = None
     states = None
     direct_transitions = None
+    is_complete = False
 
     def __new__(mcs, name, bases, attrs):
         """
@@ -28,6 +29,11 @@ class StateMeta(ABCMeta):
         """
 
         cls: StateMeta = super().__new__(mcs, name, bases, attrs)
+
+        if cls.is_complete:
+            raise ValueError(
+                "This machine is already complete, you cannot add more subclasses.",
+            )
 
         machine_classes = [
             ancestor
@@ -83,6 +89,8 @@ class StateMeta(ABCMeta):
                 "complete() can only be called on state machine roots, i.e. "
                 "classes marked with is_machine = True.",
             )
+
+        cls.is_complete = True
 
         cls.states = frozenset(
             sub for sub in cls.subclasses
