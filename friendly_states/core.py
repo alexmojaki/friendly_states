@@ -144,7 +144,7 @@ class StateMeta(ABCMeta):
 
         summary = cls.__dict__.get("Summary")
         if summary:
-            cls.check_graph(summary)
+            cls.check_summary(summary)
 
     def _make_transition_wrapper(cls, func, output_names):
         if len(set(output_names)) != len(output_names):
@@ -266,7 +266,7 @@ class StateMeta(ABCMeta):
             for func in cls.transitions
         ])
 
-    def check_graph(cls, graph):
+    def check_summary(cls, graph):
         """
         Checks that the summary graph matches the state classes.
         """

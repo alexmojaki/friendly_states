@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from types import SimpleNamespace
 
 import pytest
 
@@ -131,7 +132,7 @@ According to summary       : Red, Yellow
 According to actual classes: Yellow
 
 """):
-        TrafficLightMachine.check_graph(Graph)
+        TrafficLightMachine.check_summary(Graph)
 
 
 def test_repr():
@@ -532,3 +533,52 @@ def test_dynamic_attr_recipe():
     S1(thing, "other_state").to_s2()
     assert thing.state is S2
     assert thing.other_state is S2
+
+
+def machine_factory():
+    class Machine(AttributeState):
+        is_machine = True
+
+    class CommonState1(Machine):
+        def to_common_state_2(self) -> [CommonState2]:
+            pass
+
+    class CommonState2(Machine):
+        pass
+
+    return SimpleNamespace(
+        Machine=Machine,
+        CommonState1=CommonState1,
+        CommonState2=CommonState2,
+    )
+
+
+def test_similar_machines_recipe():
+    machine1 = machine_factory()
+    CommonState2 = machine1.CommonState2
+    Machine = machine1.Machine
+
+    class DifferentState(Machine):
+        def to_common_state_2(self) -> [CommonState2]:
+            pass
+
+    str(DifferentState)
+
+    Machine.complete()
+
+    class Summary:
+        CommonState1: [CommonState2]
+        CommonState2: []
+        DifferentState: [CommonState2]
+
+    Machine.check_summary(Summary)
+
+    machine2 = machine_factory()
+    Machine = machine2.Machine
+    Machine.complete()
+
+    class Summary:
+        CommonState1: [CommonState2]
+        CommonState2: []
+
+    Machine.check_summary(Summary)
