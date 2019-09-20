@@ -476,3 +476,36 @@ def test_already_complete():
             pass
 
         str(Purple)
+
+
+def test_dynamic_attr_recipe():
+    class DynamicAttributeState(AttributeState):
+        def __init__(self, inst, attr_name):
+            self.attr_name = attr_name
+            super().__init__(inst)
+
+    class Machine(DynamicAttributeState):
+        is_machine = True
+
+    class S1(Machine):
+        def to_s2(self) -> [S2]:
+            pass
+
+    class S2(Machine):
+        pass
+
+    Machine.complete()
+
+    thing = StatefulThing(S1)
+    thing.other_state = S1
+
+    assert thing.state is S1
+    assert thing.other_state is S1
+
+    S1(thing, "state").to_s2()
+    assert thing.state is S2
+    assert thing.other_state is S1
+
+    S1(thing, "other_state").to_s2()
+    assert thing.state is S2
+    assert thing.other_state is S2
