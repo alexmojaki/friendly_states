@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from friendly_states.core import AttributeState, IncorrectInitialState, AbstractState, MappingKeyState
+from friendly_states.core import AttributeState, IncorrectInitialState, BaseState, MappingKeyState
 from friendly_states.exceptions import StateChangedElsewhere, IncorrectSummary, MultipleMachineAncestors, \
     InheritedFromState, CannotInferOutputState, DuplicateStateNames, DuplicateOutputStates, UnknownOutputState, \
     ReturnedInvalidState, GetStateDidNotReturnState
@@ -93,7 +93,7 @@ def test_transitions():
     assert light.state is Green
     with raises(
             IncorrectInitialState,
-            instance=light,
+            obj=light,
             desired=Red,
             state=Green,
             message='StatefulThing(state=Green) should be in state Red but is actually in state Green',
@@ -105,7 +105,7 @@ def test_state_changed_elsewhere():
     obj = StatefulThing(State1)
     with raises(
             StateChangedElsewhere,
-            instance=obj,
+            obj=obj,
             state=State2,
             desired=State1,
             message="The state of StatefulThing(state=State2) has changed to State2 "
@@ -146,9 +146,10 @@ According to actual classes: Yellow
 
 
 def test_repr():
-    assert repr(TrafficLightMachine) == "<class 'tests.test_core.TrafficLightMachine'>"
+    assert repr(BaseState) == "<class 'friendly_states.core.BaseState'>"
+    assert repr(TrafficLightMachine) == "TrafficLightMachine"
     assert repr(Green) == "Green"
-    assert repr(Green(StatefulThing(Green))) == "Green(inst=StatefulThing(state=Green))"
+    assert repr(Green(StatefulThing(Green))) == "Green(obj=StatefulThing(state=Green))"
 
 
 def test_abstract_classes():
@@ -208,10 +209,8 @@ def test_multiple_machines():
 
     with raises(
             MultipleMachineAncestors,
-            message=("Multiple machine classes found in ancestors of "
-                     "<class 'tests.test_core.test_multiple_machines.<locals>.Machine2'>: "
-                     "[<class 'tests.test_core.test_multiple_machines.<locals>.Machine2'>,"
-                     " <class 'tests.test_core.test_multiple_machines.<locals>.Machine1'>]")
+            message=("Multiple machine classes found in ancestors of Machine2: "
+                     "[Machine2, Machine1]")
     ):
         class Machine2(Machine1):
             is_machine = True
@@ -227,10 +226,8 @@ def test_multiple_machines():
     with raises(
             MultipleMachineAncestors,
             machine_classes=[Machine3, Machine4],
-            message=("Multiple machine classes found in ancestors of "
-                     "<class 'tests.test_core.test_multiple_machines.<locals>.State'>: "
-                     "[<class 'tests.test_core.test_multiple_machines.<locals>.Machine3'>,"
-                     " <class 'tests.test_core.test_multiple_machines.<locals>.Machine4'>]"),
+            message=("Multiple machine classes found in ancestors of State: "
+                     "[Machine3, Machine4]"),
     ):
         class State(Machine3, Machine4):
             pass
@@ -249,13 +246,9 @@ def test_inherit_from_state():
             InheritedFromState,
             ancestor=S1,
             machine=MyMachine,
-            message=("<class 'tests.test_core.test_inherit_from_state.<locals>.S2'> "
-                     "inherits from <class 'tests.test_core.test_inherit_from_state.<locals>.S1'> "
-                     "and both are part of the machine "
-                     "<class 'tests.test_core.test_inherit_from_state.<locals>.MyMachine'>, "
-                     "but <class 'tests.test_core.test_inherit_from_state.<locals>.S1'> is not abstract. "
-                     "If it should be, mark it with is_abstract = True. "
-                     "You cannot inherit from actual state classes."),
+            message=("S2 inherits from S1 and both are part of the machine MyMachine, but S1 is "
+                     "not abstract. If it should be, mark it with is_abstract = True. You cannot "
+                     "inherit from actual state classes."),
     ):
         class S2(S1):
             pass
@@ -412,15 +405,15 @@ def test_generate_classes():
 Missing states:
 
 class S1(Machine):
-    def to_s2(self) -> [S2]:
+    def to_s_2(self) -> [S2]:
         pass
 
-    def to_s3(self) -> [S3]:
+    def to_s_3(self) -> [S3]:
         pass
 
 
 class S2(Machine):
-    def to_s3(self) -> [S3]:
+    def to_s_3(self) -> [S3]:
         pass
 
 
@@ -433,7 +426,7 @@ class S3(Machine):
 
 
 def test_bad_get_state():
-    class MyState(AbstractState):
+    class MyState(BaseState):
         def get_state(self):
             return 3
 
@@ -451,7 +444,7 @@ def test_bad_get_state():
     with raises(
             GetStateDidNotReturnState,
             returned=3,
-            message="get_state is supposed to return a subclass of AbstractState, "
+            message="get_state is supposed to return a subclass of BaseState, "
                     "but it returned 3",
     ):
         State(None)
@@ -514,9 +507,9 @@ def test_ensure_complete():
 
 def test_dynamic_attr_recipe():
     class DynamicAttributeState(AttributeState):
-        def __init__(self, inst, attr_name):
+        def __init__(self, obj, attr_name):
             self.attr_name = attr_name
-            super().__init__(inst)
+            super().__init__(obj)
 
     class Machine(DynamicAttributeState):
         is_machine = True

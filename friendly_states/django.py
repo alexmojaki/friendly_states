@@ -11,7 +11,7 @@ class DjangoState(AttributeState):
     def set_state(self, previous_state, new_state):
         super().set_state(previous_state, new_state)
         if self.auto_save:
-            self.inst.save()
+            self.obj.save()
 
 
 class StateField(models.CharField):

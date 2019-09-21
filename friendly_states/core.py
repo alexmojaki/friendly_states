@@ -53,7 +53,7 @@ class StateMeta(ABCMeta):
             )
 
         machine: StateMeta = machine_classes[0]
-        assert issubclass(machine, AbstractState)
+        assert issubclass(machine, BaseState)
 
         cls.machine = machine
 
@@ -90,8 +90,6 @@ class StateMeta(ABCMeta):
                 "complete() can only be called on state machine roots, i.e. "
                 "classes marked with is_machine = True.",
             )
-
-        cls.is_complete = True
 
         cls.states = frozenset(
             sub for sub in cls.subclasses
@@ -138,11 +136,13 @@ class StateMeta(ABCMeta):
                 # Replace the function
                 setattr(sub, method_name, transition)
 
-            sub.direct_transitions = tuple(transitions)
+            sub.direct_transitions = frozenset(transitions)
 
         summary = cls.__dict__.get("Summary")
         if summary:
             cls.check_summary(summary)
+
+        cls.is_complete = True
 
     def _make_transition_wrapper(cls, func, output_names):
         if len(set(output_names)) != len(output_names):
@@ -155,10 +155,10 @@ class StateMeta(ABCMeta):
             )
 
         try:
-            output_states = {
+            output_states = frozenset(
                 cls.name_to_state[name]
                 for name in output_names
-            }
+            )
         except KeyError as e:
             raise UnknownOutputState(
                 "The transition function {func} in the class {cls} "
@@ -172,8 +172,8 @@ class StateMeta(ABCMeta):
             ) from e
 
         @functools.wraps(func)
-        def wrapper(self: AbstractState, *args, **kwargs):
-            result: 'Type[AbstractState]' = func(self, *args, **kwargs)
+        def wrapper(self: BaseState, *args, **kwargs):
+            result: 'Type[BaseState]' = func(self, *args, **kwargs)
             if result is None:
                 # Infer the next state based on the annotation
                 if len(output_states) > 1:
@@ -196,7 +196,7 @@ class StateMeta(ABCMeta):
 
             current = self._get_and_check_state(
                 StateChangedElsewhere,
-                "The state of {instance} has changed to {state} since instantiating {desired}. "
+                "The state of {obj} has changed to {state} since instantiating {desired}. "
                 "Did you change the state inside a transition method? Don't."
             )
 
@@ -206,7 +206,7 @@ class StateMeta(ABCMeta):
         return wrapper
 
     def __repr__(cls):
-        if cls.is_state:
+        if cls.machine:
             return cls.__name__
         return super().__repr__()
 
@@ -244,7 +244,7 @@ class StateMeta(ABCMeta):
 
     @property
     def transitions(cls):
-        return set().union(*[
+        return frozenset().union(*[
             getattr(sub, "direct_transitions", ()) or ()
             for sub in cls.__mro__
         ])
@@ -259,7 +259,7 @@ class StateMeta(ABCMeta):
         if not cls.is_state:
             raise AttributeError("This is not a state class")
 
-        return set().union(*[
+        return frozenset().union(*[
             getattr(func, "output_states", [])
             for func in cls.transitions
         ])
@@ -310,7 +310,7 @@ class StateMeta(ABCMeta):
         raise IncorrectSummary(message)
 
 
-class AbstractState(metaclass=StateMeta):
+class BaseState(metaclass=StateMeta):
     """
     Base class of all states.
 
@@ -341,32 +341,32 @@ class AbstractState(metaclass=StateMeta):
     After do_thing() succeeds, transition() will be called which updates the state in the DB.
     """
 
-    def __init__(self, inst):
+    def __init__(self, obj):
         if not type(self).is_complete:
             raise ValueError(
                 f"This machine is not complete, call {self.machine.__name__}.complete() "
                 f"after declaring all states (subclasses).",
             )
 
-        self.inst = inst
+        self.obj = obj
         self._get_and_check_state(
             IncorrectInitialState,
-            "{instance} should be in state {desired} but is actually in state {state}"
+            "{obj} should be in state {desired} but is actually in state {state}"
         )
 
     def _get_and_check_state(self, exception_class, message_format):
         state = self.get_state()
-        if not (isinstance(state, type) and issubclass(state, AbstractState)):
+        if not (isinstance(state, type) and issubclass(state, BaseState)):
             raise GetStateDidNotReturnState(
-                f"get_state is supposed to return a subclass of {AbstractState.__name__}, "
+                f"get_state is supposed to return a subclass of {BaseState.__name__}, "
                 "but it returned {returned}",
                 returned=state,
             )
         desired = type(self)
-        if state is not desired:
+        if not issubclass(state, desired):
             raise exception_class(
                 message_format,
-                instance=self.inst,
+                obj=self.obj,
                 desired=desired,
                 state=state,
             )
@@ -374,32 +374,32 @@ class AbstractState(metaclass=StateMeta):
         return state
 
     @abstractmethod
-    def get_state(self) -> 'Type[AbstractState]':
+    def get_state(self) -> 'Type[BaseState]':
         pass
 
     @abstractmethod
-    def set_state(self, previous_state: 'Type[AbstractState]', new_state: 'Type[AbstractState]'):
+    def set_state(self, previous_state: 'Type[BaseState]', new_state: 'Type[BaseState]'):
         pass
 
     def __repr__(self):
-        return f"{type(self).__name__}(inst={repr(self.inst)})"
+        return f"{type(self).__name__}(obj={repr(self.obj)})"
 
 
-class AttributeState(AbstractState):
+class AttributeState(BaseState):
     attr_name = "state"
 
     def get_state(self):
-        return getattr(self.inst, self.attr_name)
+        return getattr(self.obj, self.attr_name)
 
     def set_state(self, previous_state, new_state):
-        setattr(self.inst, self.attr_name, new_state)
+        setattr(self.obj, self.attr_name, new_state)
 
 
-class MappingKeyState(AbstractState):
+class MappingKeyState(BaseState):
     key_name = "state"
 
     def get_state(self):
-        return self.inst[self.key_name]
+        return self.obj[self.key_name]
 
     def set_state(self, previous_state, new_state):
-        self.inst[self.key_name] = new_state
+        self.obj[self.key_name] = new_state
