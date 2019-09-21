@@ -563,30 +563,27 @@ def machine_factory():
 
 def test_similar_machines_recipe():
     machine1 = machine_factory()
-    CommonState2 = machine1.CommonState2
-    Machine = machine1.Machine
 
-    class DifferentState(Machine):
-        def to_common_state_2(self) -> [CommonState2]:
+    class DifferentState(machine1.Machine):
+        def to_common_state_2(self) -> [machine1.CommonState2]:
             pass
 
     str(DifferentState)
 
-    Machine.complete()
+    machine1.Machine.complete()
 
     class Summary:
         CommonState1: [CommonState2]
         CommonState2: []
         DifferentState: [CommonState2]
 
-    Machine.check_summary(Summary)
+    machine1.Machine.check_summary(Summary)
 
     machine2 = machine_factory()
-    Machine = machine2.Machine
-    Machine.complete()
+    machine2.Machine.complete()
 
     class Summary:
         CommonState1: [CommonState2]
         CommonState2: []
 
-    Machine.check_summary(Summary)
+    machine2.Machine.check_summary(Summary)

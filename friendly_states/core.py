@@ -1,6 +1,6 @@
+import ast
 import functools
 import inspect
-import re
 from abc import ABCMeta, abstractmethod
 from typing import Type
 
@@ -120,10 +120,10 @@ class StateMeta(ABCMeta):
                     continue
 
                 annotation = func.__annotations__.get("return")
-                if not (annotation and annotation[0] == "[" and annotation[-1] == "]"):
+                if not annotation:
                     continue
 
-                output_names = re.findall(r"\w+", annotation)
+                output_names = extract_state_names(annotation)
                 if not output_names:
                     continue
 
@@ -273,7 +273,8 @@ class StateMeta(ABCMeta):
         missing_classes = []
         wrong_outputs = []
         for state_name, annotation in graph.__annotations__.items():
-            output_names = re.findall(r"\w+", annotation)
+            output_names = extract_state_names(annotation)
+            assert output_names is not None
             state = cls.name_to_state.get(state_name)
             if state:
                 actual_output_names = {
@@ -405,3 +406,28 @@ class MappingKeyState(BaseState):
 
     def set_state(self, previous_state, new_state):
         self.obj[self.key_name] = new_state
+
+
+def extract_state_names(annotation):
+    try:
+        tree = ast.parse(annotation)
+    except SyntaxError:
+        return None
+
+    if len(tree.body) != 1:
+        return None
+
+    lst = tree.body[0].value
+    if not isinstance(lst, ast.List):
+        return None
+
+    result = []
+    for elem in lst.elts:
+        if isinstance(elem, ast.Name):
+            result.append(elem.id)
+        elif isinstance(elem, ast.Attribute):
+            result.append(elem.attr)
+        else:
+            return None
+
+    return result
