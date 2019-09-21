@@ -299,21 +299,21 @@ def test_multiple_output_states():
     thing = StatefulThing(S1)
     with raises(
             CannotInferOutputState,
-            output_states={S2, S3},
+            output_states=[S2, S3],
             func=S1.transit.__wrapped__,
             match=r"This transition <function test_multiple_output_states.<locals>.S1.transit at 0x\w+> "
-                  r"has multiple output states (\{S2, S3\}|\{S3, S2\}), you must return one.",
+                  r"has multiple output states \[S2, S3\], you must return one.",
     ):
         S1(thing).transit(3)
 
     thing = StatefulThing(S1)
     with raises(
             ReturnedInvalidState,
-            output_states={S2, S3},
+            output_states=[S2, S3],
             func=S1.transit.__wrapped__,
             result=3,
             match=r"The transition <function test_multiple_output_states.<locals>.S1.transit at 0x\w+> "
-                  r"returned 3, which is not in the declared output states (\{S2, S3\}|\{S3, S2\})",
+                  r"returned 3, which is not in the declared output states \[S2, S3\]",
     ):
         S1(thing).transit(4)
 

@@ -108,10 +108,7 @@ class StateMeta(ABCMeta):
         if len(cls.states) != len(cls.slug_to_state):
             raise DuplicateStateNames(
                 "Some of the states in this machine have the same slug: {slug_to_state}",
-                slug_to_state=sorted(
-                    slug_to_state,
-                    key=lambda pair: (pair[0], pair[1].__name__)
-                ),
+                slug_to_state=sorted(slug_to_state),
             )
 
         for sub in cls.subclasses:
@@ -180,7 +177,7 @@ class StateMeta(ABCMeta):
                     raise CannotInferOutputState(
                         "This transition {func} has multiple output states {output_states}, "
                         "you must return one.",
-                        output_states=output_states,
+                        output_states=sorted(output_states),
                         func=func,
                     )
                 (result,) = output_states
@@ -189,7 +186,7 @@ class StateMeta(ABCMeta):
                 raise ReturnedInvalidState(
                     "The transition {func} returned {result}, "
                     "which is not in the declared output states {output_states}",
-                    output_states=output_states,
+                    output_states=sorted(output_states),
                     func=func,
                     result=result,
                 )
@@ -209,6 +206,11 @@ class StateMeta(ABCMeta):
         if cls.machine:
             return cls.__name__
         return super().__repr__()
+
+    def __lt__(cls, other):
+        if not isinstance(other, StateMeta):
+            return NotImplemented
+        return cls.__name__ < other.__name__
 
     @property
     def is_machine(cls):

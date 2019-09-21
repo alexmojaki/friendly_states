@@ -80,7 +80,7 @@ class StateField(models.CharField):
                 raise ValidationError(
                     f"{value} is a state class but isn't one of the states "
                     f"in the machine {machine.__name__}, which are "
-                    f"{sorted(machine.states, key=lambda c: c.__name__)}",
+                    f"{sorted(machine.states)}",
                 )
             return value.slug
         elif isinstance(value, str):
