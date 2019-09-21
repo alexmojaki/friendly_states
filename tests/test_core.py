@@ -202,6 +202,11 @@ def test_abstract_classes():
     Child1(thing).to_loner()
     assert thing["state"] is Loner
 
+    assert MyMachine.states == {Loner, Child1, Child2}
+    assert Child1.machine is MyMachine
+    assert Child1.direct_transitions == {Child1.to_child2}
+    assert Child1.transitions == {Child1.to_child2, Parent.to_loner}
+
 
 def test_multiple_machines():
     class Machine1(AttributeState):
