@@ -96,6 +96,8 @@ Compare this with the popular library [`transitions`](https://github.com/pytrans
 
 By contrast, when using `friendly_states`, there are no strings or magic attributes anywhere. Code is always naturally grouped together: all the transitions specific to a state appear inside that class, and logic related to a transition is in that function where you'd expect it.
 
+[Here](https://github.com/alexmojaki/friendly_states/blob/master/transitions_example.py) is the equivalent of the main example in the `transitions` doc implemented using `friendly_states`.
+
 ## Basic usage steps
 
 1) Ensure that you are using Python 3.7+.
