@@ -22,9 +22,9 @@ class StateMeta(ABCMeta):
     def __new__(mcs, name, bases, attrs):
         """
         Called when a new class is declared with this metaclass.
-        In particular, called when a state is created by subclassing State.
-
-        Replaces each transition function with a wrapper that actually changes the state.
+        In particular, called when subclassing BaseState.
+        Just keeps track of their machines and their subclasses,
+        the real work happens in complete()
         """
 
         cls: StateMeta = super().__new__(mcs, name, bases, attrs)
@@ -85,6 +85,13 @@ class StateMeta(ABCMeta):
         return cls
 
     def complete(cls):
+        """
+        Must be called on the machine after all subclasses have been declared.
+
+        Replaces the transitions with wrappers that do the state change magic,
+        sets many of the metadata attributes, and checks validity and the summary.
+        """
+
         if not cls.is_machine:
             raise ValueError(
                 "complete() can only be called on state machine roots, i.e. "
@@ -142,6 +149,11 @@ class StateMeta(ABCMeta):
         cls.is_complete = True
 
     def _make_transition_wrapper(cls, func, output_names):
+        """
+        Returns a function which wraps a transition to replace it.
+        The wrapper does the state change after calling the original function.
+        """
+
         if len(set(output_names)) != len(output_names):
             raise DuplicateOutputStates(
                 "The transition function {func} in the class {cls} "
@@ -224,7 +236,7 @@ class StateMeta(ABCMeta):
     def slug(cls):
         """
         The state in string form so that it can be stored in databases etc.
-        If a state (a State subclass) is renamed, this should be set explicitly as a class attribute
+        If a state is renamed, this should be set explicitly as a class attribute
         to the original value to avoid data problems.
         """
         return cls.__dict__.get("slug", cls.__name__)
@@ -254,9 +266,7 @@ class StateMeta(ABCMeta):
     @property
     def output_states(cls):
         """
-        Set of states (State subclasses) which can be reached directly from this state.
-
-        Raises an AttributeError if this is not a state class.
+        Set of states which can be reached directly from this state.
         """
         if not cls.is_state:
             raise AttributeError("This is not a state class")
@@ -315,33 +325,9 @@ class StateMeta(ABCMeta):
 
 class BaseState(metaclass=StateMeta):
     """
-    Base class of all states.
-
-    To create a state:
-
-     - Subclass this class.
-     - Give it methods to declare transitions to other states.
-     - Add a return annotation with a list of possible output states to those methods.
-     - If a transition method has several possible output states, it must return one of them.
-
-    Example:
-
-        class MyState(State):
-            def do_thing(self) -> [NextState]:
-                pass
-
-            def other_thing(self, option) -> [NextState, OtherState]
-                if option:
-                    return NextState
-                else:
-                    return OtherState
-
-    Doing a transition then looks like this:
-
-        MyState(case).do_thing()
-
-    MyState(case) will assert that the case is in fact in the state MyState.
-    After do_thing() succeeds, transition() will be called which updates the state in the DB.
+    Abstract base class of all states.
+    To make state machines you will need a concrete implementation
+    with get_state and set_state, usually AttributeState.
     """
 
     def __init__(self, obj):
@@ -389,6 +375,14 @@ class BaseState(metaclass=StateMeta):
 
 
 class AttributeState(BaseState):
+    """
+    A simple base state class which keeps the state in an attribute of the object.
+    This is the most common base class for machines.
+
+    By default the attribute is named 'state', this can be overridden with the
+    attr_name attribute on this class.
+    """
+
     attr_name = "state"
 
     def get_state(self):
@@ -399,6 +393,13 @@ class AttributeState(BaseState):
 
 
 class MappingKeyState(BaseState):
+    """
+    An alternative base state class which gets/sets the state via square bracket access,
+    e.g. obj['state'].
+
+    By default the mapping key is the string 'state', this can be overridden with the
+    key_name attribute on this class.
+    """
     key_name = "state"
 
     def get_state(self):

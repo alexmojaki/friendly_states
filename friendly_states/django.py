@@ -1,3 +1,49 @@
+"""
+`friendly_states` can easily be used out of the box with Django. Basic usage looks like this:
+
+```python
+from django.db import models
+from friendly_states.django import StateField, DjangoState
+
+class MyMachine(DjangoState):
+    is_machine = True
+
+# ...
+
+class MyModel(models.Model):
+    state = StateField(MyMachine)
+```
+
+`StateField` is a `CharField` that stores the `slug` of the current state in the database while letting you use the actual state class objects in all your code, e.g:
+
+```python
+obj = MyModel.objects.create(state=MyState)
+assert obj.state is MyState
+objects = MyModel.objects.filter(state=MyState)
+```
+
+All keyword arguments are passed straight to `CharField`, except for `max_length` and `choices` which are ignored, see below.
+
+`DjangoState` will automatically save your model after state transitions. To disable this, set `auto_save = False` on your machine or state classes.
+
+`StateField` will automatically discover its name in the model and set that `attr_name` on the machine, so you don't need to set it. But as usual, beware that you can't use different attribute names for the same machine. Also note that the name `_state` is used internally by Django so don't use that.
+
+Because the database stores slugs and the slug is the class name by default, if you rename your classes in code and you want existing data to remain valid, you should set the slug to the old class name:
+
+```python
+class MyRenamedState(MyMachine):
+    slug = "MyState"
+    ...
+```
+
+Similarly you mustn't delete a state class if you stop using it as long as your database contains objects in that state, or your code will fail when it tries to work with such an object.
+
+`max_length` is automatically set to the maximum length of all the slugs in the machine. If you want to save space in your database, override the slugs to something shorter.
+
+`choices` is constructed from the `slug` and `label` of every state. To customise how states are displayed in forms etc, override the `label` attribute on the class.
+"""
+
+
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -5,6 +51,8 @@ from friendly_states.core import StateMeta, AttributeState
 
 
 class DjangoState(AttributeState):
+    __doc__ = globals()["__doc__"]
+
     attr_name = None
     auto_save = True
 
@@ -15,6 +63,8 @@ class DjangoState(AttributeState):
 
 
 class StateField(models.CharField):
+    __doc__ = globals()["__doc__"]
+
     empty_strings_allowed = False
 
     def __init__(self, machine, *args, **kwargs):
