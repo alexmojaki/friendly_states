@@ -1,6 +1,6 @@
 # friendly_states
 
-[![Build Status](https://travis-ci.org/alexmojaki/executing.svg?branch=master)](https://travis-ci.org/alexmojaki/executing) [![Coverage Status](https://coveralls.io/repos/github/alexmojaki/executing/badge.svg?branch=master)](https://coveralls.io/github/alexmojaki/executing?branch=master) [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/alexmojaki/friendly_states/master?filepath=README.ipynb)
+[![Build Status](https://travis-ci.org/alexmojaki/friendly_states.svg?branch=master)](https://travis-ci.org/alexmojaki/friendly_states) [![Coverage Status](https://coveralls.io/repos/github/alexmojaki/friendly_states/badge.svg?branch=master)](https://coveralls.io/github/alexmojaki/friendly_states?branch=master) [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/alexmojaki/friendly_states/master?filepath=README.ipynb)
 
 This is a Python library for writing finite state machines in a way that's easy to read and prevents mistakes with the help of standard linters and IDEs.
 
