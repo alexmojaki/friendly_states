@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 
-set -eu
-
-. ./venv/bin/activate
-
-set -x
+set -eux
 
 pytest
 python transitions_example.py

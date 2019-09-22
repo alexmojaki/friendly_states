@@ -8,7 +8,8 @@ install:
   - pip install coveralls
   - pip install .[tests]
 script:
-  - coverage run --include=friendly_states -m pytest
+  - ./test.sh
+  - coverage run -m pytest
   - coverage report -m
 
 after_success:

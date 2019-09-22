@@ -1,20 +1,24 @@
 # friendly_states
 
+[![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/alexmojaki/friendly_states/master?filepath=README.ipynb)
+
 This is a Python library for writing finite state machines in a way that's easy to read and prevents mistakes with the help of standard linters and IDEs.
 
-  * [Introduction](#Introduction)
-  * [Basic usage steps](#Basic-usage-steps)
-  * [Abstract state classes](#Abstract-state-classes)
-  * [State machine metadata](#State-machine-metadata)
-     * [Slugs and labels](#Slugs-and-labels)
-  * [BaseState - configuring state storage and changes](#BaseState---configuring-state-storage-and-changes)
-  * [Troubleshooting](#Troubleshooting)
-  * [Recipes](#Recipes)
-     * [Construct and draw a graph](#Construct-and-draw-a-graph)
-     * [Creating multiple similar machines](#Creating-multiple-similar-machines)
-     * [Dynamically changing the attribute name](#Dynamically-changing-the-attribute-name)
-     * [On enter/exit state callbacks](#On-enter/exit-state-callbacks)
-  * [Django integration](#Django-integration)
+You can try this README in an interactive notebook in [binder](https://mybinder.org/v2/gh/alexmojaki/friendly_states/master?filepath=README.ipynb).
+
+  * [Introduction](#introduction)
+  * [Basic usage steps](#basic-usage-steps)
+  * [Abstract state classes](#abstract-state-classes)
+  * [State machine metadata](#state-machine-metadata)
+     * [Slugs and labels](#slugs-and-labels)
+  * [BaseState - configuring state storage and changes](#basestate---configuring-state-storage-and-changes)
+  * [Troubleshooting](#troubleshooting)
+  * [Recipes](#recipes)
+     * [Construct and draw a graph](#construct-and-draw-a-graph)
+     * [Creating multiple similar machines](#creating-multiple-similar-machines)
+     * [Dynamically changing the attribute name](#dynamically-changing-the-attribute-name)
+     * [On enter/exit state callbacks](#on-enterexit-state-callbacks)
+  * [Django integration](#django-integration)
 
 ## Introduction
 
@@ -239,7 +243,7 @@ assert task.result is None
 assert task.state is Waiting
 ```
 
-Our example machine expects to find an attribute called `state` on its objects, as we've provided here. If you have different needs, see the [`BaseState`](#BaseState---configuring-state-storage-and-changes) section.
+Our example machine expects to find an attribute called `state` on its objects, as we've provided here. If you have different needs, see the [`BaseState`](#basestate---configuring-state-storage-and-changes) section.
 
 To change the state of your object, you first need to know what state it's in right now. Sometimes you'll need to check, but often it'll be obvious in the context of your application. For example, if we have a queue of fresh tasks, any task we pop from that queue will be in state `Waiting`.
 
@@ -494,7 +498,7 @@ If things are not working as expected, here are some things to check:
 ```
 
 - If your transition has any decorators, make sure that the decorated function still has the original `__annotations__` attribute. This is usually done by using `functools.wraps` when implementing the decorator.
-- Make sure that the object stores state the way the machine expects. Typically you'll be using `AttributeState` and you should make sure that `attr_name` ("state" by default) is correct. Note that a typical machine expects objects to have just one way of storing state - you can't use the same machine to change state stored in different attributes. To overcome this, see the [recipe 'Dynamically changing the attribute name'](#Dynamically-changing-the-attribute-name).
+- Make sure that the object stores state the way the machine expects. Typically you'll be using `AttributeState` and you should make sure that `attr_name` ("state" by default) is correct. Note that a typical machine expects objects to have just one way of storing state - you can't use the same machine to change state stored in different attributes. To overcome this, see the [recipe 'Dynamically changing the attribute name'](#dynamically-changing-the-attribute-name).
 - Check that you've inherited your classes correctly. All states need to inherit from the machine.
 
 ## Recipes
