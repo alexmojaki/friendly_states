@@ -2,6 +2,22 @@
 
 This is a Python library for writing finite state machines in a way that's easy to read and prevents mistakes with the help of standard linters and IDEs.
 
+  * [Introduction](#Introduction)
+  * [Basic usage steps](#Basic-usage-steps)
+  * [Abstract state classes](#Abstract-state-classes)
+  * [State machine metadata](#State-machine-metadata)
+     * [Slugs and labels](#Slugs-and-labels)
+  * [BaseState - configuring state storage and changes](#BaseState---configuring-state-storage-and-changes)
+  * [Troubleshooting](#Troubleshooting)
+  * [Recipes](#Recipes)
+     * [Construct and draw a graph](#Construct-and-draw-a-graph)
+     * [Creating multiple similar machines](#Creating-multiple-similar-machines)
+     * [Dynamically changing the attribute name](#Dynamically-changing-the-attribute-name)
+     * [On enter/exit state callbacks](#On-enter/exit-state-callbacks)
+  * [Django integration](#Django-integration)
+
+## Introduction
+
 Here's a simple example of declaring a state machine:
 
 
@@ -55,15 +71,8 @@ class TrafficLight:
         self.state = state
 
 light = TrafficLight(Green)
-light.state
+assert light.state is Green
 ```
-
-
-
-
-    Green
-
-
 
 The magic happens when making transitions:
 
@@ -71,18 +80,11 @@ The magic happens when making transitions:
 ```python
 Green(light).slow_down()
 Yellow(light).stop()
-light.state
+assert light.state is Red
 ```
 
     Slowing down...
     Stop.
-
-
-
-
-
-    Red
-
 
 
 Making an instance of a state class such as `Green(light)` automatically checks that `light` is actually in the `Green` state and raises an exception if it's not.
@@ -235,7 +237,7 @@ assert task.result is None
 assert task.state is Waiting
 ```
 
-Our example machine expects to find an attribute called `state` on its objects, as we've provided here. If you have different needs, see the [TODO](#TODO) section.
+Our example machine expects to find an attribute called `state` on its objects, as we've provided here. If you have different needs, see the [`BaseState`](#BaseState---configuring-state-storage-and-changes) section.
 
 To change the state of your object, you first need to know what state it's in right now. Sometimes you'll need to check, but often it'll be obvious in the context of your application. For example, if we have a queue of fresh tasks, any task we pop from that queue will be in state `Waiting`.
 
@@ -249,7 +251,7 @@ Waiting(task)
 
 
 
-    Waiting(obj=<__main__.Task object at 0x10e1642e8>)
+    Waiting(obj=<__main__.Task object at 0x1173677f0>)
 
 
 
@@ -264,7 +266,7 @@ except Exception as e:
     print(e)
 ```
 
-    <__main__.Task object at 0x10e1642e8> should be in state Doing but is actually in state Waiting
+    <__main__.Task object at 0x1173677f0> should be in state Doing but is actually in state Waiting
 
 
 Once you have an instance of the correct state, call whatever methods you want on it as usual. If the method is a transition, the state will automatically be changed afterwards:
@@ -390,7 +392,7 @@ except Exception as e:
     print(e)
 ```
 
-    <__main__.Task object at 0x10e164cf8> should be in state Unfinished but is actually in state Finished
+    <__main__.Task object at 0x11401cb00> should be in state Unfinished but is actually in state Finished
 
 
 ## State machine metadata
@@ -490,7 +492,7 @@ If things are not working as expected, here are some things to check:
 ```
 
 - If your transition has any decorators, make sure that the decorated function still has the original `__annotations__` attribute. This is usually done by using `functools.wraps` when implementing the decorator.
-- Make sure that the object stores state the way the machine expects. Typically you'll be using `AttributeState` and you should make sure that `attr_name` ("state" by default) is correct. Note that a typical machine expects objects to have just one way of storing state - you can't use the same machine to change state stored in different attributes. To overcome this, see the recipes section.
+- Make sure that the object stores state the way the machine expects. Typically you'll be using `AttributeState` and you should make sure that `attr_name` ("state" by default) is correct. Note that a typical machine expects objects to have just one way of storing state - you can't use the same machine to change state stored in different attributes. To overcome this, see the [recipe 'Dynamically changing the attribute name'](#Dynamically-changing-the-attribute-name).
 - Check that you've inherited your classes correctly. All states need to inherit from the machine.
 
 ## Recipes
@@ -515,8 +517,8 @@ print(G.nodes)
 print(G.edges)
 ```
 
-    [Checking, Finished, Waiting, Doing]
-    [(Checking, Finished), (Waiting, Finished), (Waiting, Doing), (Doing, Checking), (Doing, Finished)]
+    [Waiting, Finished, Doing, Checking]
+    [(Waiting, Finished), (Waiting, Doing), (Doing, Finished), (Doing, Checking), (Checking, Finished)]
 
 
 To draw the graph with `matplotlib`:
@@ -527,16 +529,8 @@ To draw the graph with `matplotlib`:
 nx.draw(G, with_labels=True, node_color='pink')   
 ```
 
-    /Users/alexhall/Desktop/python/friendly_states/venv/lib/python3.7/site-packages/networkx/drawing/nx_pylab.py:579: MatplotlibDeprecationWarning: 
-    The iterable function was deprecated in Matplotlib 3.1 and will be removed in 3.3. Use np.iterable instead.
-      if not cb.iterable(width):
-    /Users/alexhall/Desktop/python/friendly_states/venv/lib/python3.7/site-packages/networkx/drawing/nx_pylab.py:676: MatplotlibDeprecationWarning: 
-    The iterable function was deprecated in Matplotlib 3.1 and will be removed in 3.3. Use np.iterable instead.
-      if cb.iterable(node_size):  # many node sizes
 
-
-
-![png](README_files/README_40_1.png)
+![png](README_files/README_40_0.png)
 
 
 To label each edge requires some more work:
@@ -611,7 +605,7 @@ class Summary:
     CommonState2: []
 ```
 
-## Dynamically changing the attribute name
+### Dynamically changing the attribute name
 
 A typical `AttributeState` machine can only work with one attribute name. You may need to use the same machine with different object classes that use different attributes. One way is to follow a similar pattern to above with a configurable attribute name:
 
@@ -751,8 +745,3 @@ Similarly you mustn't delete a state class if you stop using it as long as your 
 `max_length` is automatically set to the maximum length of all the slugs in the machine. If you want to save space in your database, override the slugs to something shorter.
 
 `choices` is constructed from the `slug` and `label` of every state. To customise how states are displayed in forms etc, override the `label` attribute on the class.
-
-
-```python
-
-```
