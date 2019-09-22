@@ -27,6 +27,10 @@ tests_require = [
     'pytest-pythonpath',
     'pytest-django',
     'django',
+    'jupyter',
+    'nbconvert',
+    'matplotlib',
+    'networkx',
 ]
 
 setup(
@@ -44,12 +48,6 @@ setup(
     tests_require=tests_require,
     extras_require={
         'tests': tests_require,
-        'dev': tests_require + [
-            'jupyter',
-            'nbconvert',
-            'matplotlib',
-            'networkx',
-        ],
     },
     classifiers=[
         'Intended Audience :: Developers',
