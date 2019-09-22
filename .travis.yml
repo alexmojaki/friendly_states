@@ -6,7 +6,7 @@ python:
 
 install:
   - pip install coveralls
-  - pip install -e .[tests]
+  - pip install .[tests]
 script:
   - coverage run pytest --include=friendly_states
   - coverage report -m
