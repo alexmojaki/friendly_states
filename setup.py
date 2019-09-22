@@ -32,7 +32,7 @@ tests_require = [
 setup(
     name=package,
     version=__version__,
-    description="Powerful debugging tools for Python",
+    description="Declarative, explicit, tool-friendly finite state machines in Python",
     long_description=file_to_string('README.md'),
     long_description_content_type='text/markdown',
     url='http://github.com/alexmojaki/' + package,
