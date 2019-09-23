@@ -9,9 +9,9 @@ You can try this README in an interactive notebook in [binder](https://mybinder.
   * [Introduction](#introduction)
   * [Basic usage steps](#basic-usage-steps)
   * [Abstract state classes](#abstract-state-classes)
+  * [BaseState - configuring state storage and changes](#basestate---configuring-state-storage-and-changes)
   * [State machine metadata](#state-machine-metadata)
      * [Slugs and labels](#slugs-and-labels)
-  * [BaseState - configuring state storage and changes](#basestate---configuring-state-storage-and-changes)
   * [Troubleshooting](#troubleshooting)
   * [Recipes](#recipes)
      * [Construct and draw a graph](#construct-and-draw-a-graph)
@@ -110,7 +110,7 @@ By contrast, when using `friendly_states`, there are no strings or magic attribu
 
 3) Add the line `from __future__ import annotations` at the top of the file where you define your state machine.
 
-4) Declare the root of your state machine like so:
+4) Declare the root of your state machine by inheriting from the appropriate class (usually `AttributeState`, see the [BaseState](#basestate---configuring-state-storage-and-changes) section) and setting `is_machine = True` in the body, like so:
 
 
 ```python
@@ -175,7 +175,7 @@ except Exception as e:
 
 You can copy the code above and will have a working state machine matching the summary. It's usually not exactly what you need, but it should save you a lot of time for the next step.
 
-5) Write a class for each state. In this case our final code will look pretty similar to the generated boilerplate above. Make sure you call `.complete()` at the end.
+5) Write a class for each state. Make sure you call `.complete()` at the end.
 
 
 ```python
@@ -210,7 +210,7 @@ MyMachine.complete()
 
 State classes must inherit (directly or indirectly) from the machine class, e.g. `class Waiting(MyMachine):`. A class can have any number of transitions. `Waiting` has two separate transitions, while `Finished` has none, meaning you can't leave that state. It can also have any other methods or attributes which are not transitions, like a normal class.
 
-A transition is any method which has a return annotation (the bit after the `->` in the function definition) which is a list. The list must have one or more states that will be the result of this transition. For example, this code:
+A transition is any method which has a return annotation (the bit after the `->` in the function definition) which is a list of one or more states that will be the result of this transition. For example, this code:
 
 ```python
 class Waiting(MyMachine):
@@ -221,7 +221,7 @@ means that `start_doing` is a transition from the state `Waiting` to the state `
 
 The transition `Doing.done` demonstrates several interesting things:
 
-- A transition can have multiple output states. In that case the method must return one of those states to indicate which one to switch to.
+- A transition can have multiple possible output states. In that case the method must return one of those states to indicate which one to switch to.
 - Transitions are just like normal methods and can accept whatever arguments you want.
 - States have an attribute `obj` which is the object that was passed to the class when it was constructed. This lets you interact with the object whose state is changing.
 
@@ -245,7 +245,7 @@ assert task.state is Waiting
 
 Our example machine expects to find an attribute called `state` on its objects, as we've provided here. If you have different needs, see the [`BaseState`](#basestate---configuring-state-storage-and-changes) section.
 
-To change the state of your object, you first need to know what state it's in right now. Sometimes you'll need to check, but often it'll be obvious in the context of your application. For example, if we have a queue of fresh tasks, any task we pop from that queue will be in state `Waiting`.
+7) To change the state of your object, you first need to know what state it's in right now. Sometimes you'll need to check, but often it'll be obvious in the context of your application. For example, if we have a queue of fresh tasks, any task we pop from that queue will be in state `Waiting`.
 
 Construct an instance of the correct state class and pass your object:
 
@@ -275,7 +275,7 @@ except Exception as e:
     <__main__.Task object at 0x1173677f0> should be in state Doing but is actually in state Waiting
 
 
-Once you have an instance of the correct state, call whatever methods you want on it as usual. If the method is a transition, the state will automatically be changed afterwards:
+8) Once you have an instance of the correct state, call whatever methods you want on it as usual. If the method is a transition, the state will automatically be changed afterwards:
 
 
 ```python
@@ -331,7 +331,7 @@ Sometimes you will have common behaviour that you need to share between state cl
 
 1. You can't inherit from actual state classes.
 2. Transitions must live in classes that inherit (directly or indirectly) from the machine class.
-3. Classes that inherit from the machine (and thus can have transitions) but do not represent actual states (and thus can be inherited from) should have `abstract = True` in their body.
+3. Classes that inherit from the machine (and thus can have transitions) but do not represent actual states (and thus can be inherited from) should have `is_abstract = True` in their body.
 
 Here's an example:
 
@@ -401,48 +401,6 @@ except Exception as e:
     <__main__.Task object at 0x11401cb00> should be in state Unfinished but is actually in state Finished
 
 
-## State machine metadata
-
-Machines, states, and transitions have a bunch of attributes that you can inspect:
-
-
-```python
-# All concrete (not abstract) states in the machine
-assert TaskMachine2.states == {Doing, Finished, Waiting}
-
-# All the transition functions available for this state
-assert Waiting.transitions == {Waiting.finish, Waiting.start_doing}
-
-# The transition functions defined directly on this class, i.e. not inherited
-assert Waiting.direct_transitions == {Waiting.start_doing}
-
-# Possible output states from this transition
-assert Waiting.start_doing.output_states == {Doing}
-
-# All possible output states from this state via any transition
-assert Waiting.output_states == {Doing, Finished}
-
-# Root of the state machine
-assert Waiting.machine is TaskMachine2
-
-# Booleans about the type of class
-assert TaskMachine2.is_machine and not Waiting.is_machine
-assert Waiting.is_state and not Unfinished.is_state
-assert Unfinished.is_abstract and not Waiting.is_abstract
-```
-
-### Slugs and labels
-
-Classes also have `slug` and `label` attributes which are mostly for use by Django but may be useful elsewhere. `slug` is for data storage and `label` is for human display.
-
-By default, `slug` is just the class name, while `label` is the class name with spaces inserted. Both can be overridden by declaring them in the class.
-
-
-```python
-assert Waiting.slug == "Waiting"
-assert TaskMachine2.label == "Task Machine 2"
-```
-
 ## BaseState - configuring state storage and changes
 
 At the root of all the classes in the library is `BaseState`, which has two abstract methods `get_state` and `set_state`. Subclasses determine how the object stores state and what should happen when it changes.
@@ -484,6 +442,48 @@ class PrintStateChange(AttributeState):
 So overall, your class hierarchy typically looks something like this:
 
 `BaseState <- AttributeState <- Machine <- Abstract States <- Actual states`
+
+## State machine metadata
+
+Machines, states, and transitions have a bunch of attributes that you can inspect:
+
+
+```python
+# All concrete (not abstract) states in the machine
+assert TaskMachine2.states == {Doing, Finished, Waiting}
+
+# All the transition functions available for this state
+assert Waiting.transitions == {Waiting.finish, Waiting.start_doing}
+
+# The transition functions defined directly on this class, i.e. not inherited
+assert Waiting.direct_transitions == {Waiting.start_doing}
+
+# Possible output states from this transition
+assert Waiting.start_doing.output_states == {Doing}
+
+# All possible output states from this state via any transition
+assert Waiting.output_states == {Doing, Finished}
+
+# Root of the state machine
+assert Waiting.machine is TaskMachine2
+
+# Booleans about the type of class
+assert TaskMachine2.is_machine and not Waiting.is_machine
+assert Waiting.is_state and not Unfinished.is_state
+assert Unfinished.is_abstract and not Waiting.is_abstract
+```
+
+### Slugs and labels
+
+Classes also have `slug` and `label` attributes which are mostly for use by Django but may be useful elsewhere. `slug` is for data storage and `label` is for human display.
+
+By default, `slug` is just the class name, while `label` is the class name with spaces inserted. Both can be overridden by declaring them in the class.
+
+
+```python
+assert Waiting.slug == "Waiting"
+assert TaskMachine2.label == "Task Machine 2"
+```
 
 ## Troubleshooting
 
@@ -536,7 +536,7 @@ nx.draw(G, with_labels=True, node_color='pink')
 ```
 
 
-![png](README_files/README_40_0.png)
+![png](README_files/README_42_0.png)
 
 
 To label each edge requires some more work:
@@ -558,7 +558,7 @@ nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels);
 ```
 
 
-![png](README_files/README_42_0.png)
+![png](README_files/README_44_0.png)
 
 
 ### Creating multiple similar machines
