@@ -736,7 +736,7 @@ All keyword arguments are passed straight to `CharField`, except for `max_length
 
 `DjangoState` will automatically save your model after state transitions. To disable this, set `auto_save = False` on your machine or state classes.
 
-`StateField` will automatically discover its name in the model and set that `attr_name` on the machine, so you don't need to set it. But as usual, beware that you can't use different attribute names for the same machine. Also note that the name `_state` is used internally by Django so don't use that.
+`StateField` will automatically discover its name in the model and set that `attr_name` on the machine, so you don't need to set it. But as usual, beware that you can't use different attribute names for the same machine.
 
 Because the database stores slugs and the slug is the class name by default, if you rename your classes in code and you want existing data to remain valid, you should set the slug to the old class name:
 
