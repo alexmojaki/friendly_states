@@ -410,6 +410,13 @@ class MappingKeyState(BaseState):
 
 
 def extract_state_names(annotation):
+    if not isinstance(annotation, str):
+        raise ValueError(
+            "Found non-string annotation. Remember to add:\n\n"
+            "from __future__ import annotations\n\n"
+            "at the top of your file."
+        )
+
     try:
         tree = ast.parse(annotation)
     except SyntaxError:

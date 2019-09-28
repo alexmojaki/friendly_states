@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from friendly_states.core import AttributeState, IncorrectInitialState, BaseState, MappingKeyState
+from friendly_states.core import AttributeState, IncorrectInitialState, BaseState, MappingKeyState, extract_state_names
 from friendly_states.exceptions import StateChangedElsewhere, IncorrectSummary, MultipleMachineAncestors, \
     InheritedFromState, CannotInferOutputState, DuplicateStateNames, DuplicateOutputStates, UnknownOutputState, \
     ReturnedInvalidState, GetStateDidNotReturnState
@@ -587,3 +587,13 @@ def test_similar_machines_recipe():
         CommonState2: []
 
     machine2.Machine.check_summary(Summary)
+
+
+def test_extract_state_names():
+    assert extract_state_names("x x") is None
+    assert extract_state_names("") is None
+    assert extract_state_names("x;x") is None
+    assert extract_state_names("[x[y]]") is None
+    assert extract_state_names("[x[y]]") is None
+    with raises(ValueError):
+        extract_state_names(None)
