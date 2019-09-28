@@ -107,6 +107,11 @@ class StateField(models.CharField):
         return name, path, (self.machine,), kwargs
 
     def contribute_to_class(self, cls, name, *args, **kwargs):
+        if name == "_state":
+            raise ValueError(
+                "_state is an internal attribute used by Django "
+                "and should not be the name of a field."
+            )
         super().contribute_to_class(cls, name, *args, **kwargs)
         self.machine.attr_name = self.attname
 

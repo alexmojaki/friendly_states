@@ -1,6 +1,6 @@
 import pytest
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError
+from django.db import IntegrityError, models
 from django.db.transaction import atomic
 
 from friendly_states.core import AttributeState
@@ -172,3 +172,14 @@ def test_not_complete():
                   r"after declaring all states \(subclasses\)."
     ):
         StateField(Machine)
+
+
+def test_underscore_state():
+    with pytest.raises(ValueError):
+        class Model(models.Model):
+            class Meta:
+                app_label = "myapp"
+
+            _state = StateField(TrafficLightMachine)
+
+        str(Model)
