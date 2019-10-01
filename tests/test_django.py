@@ -75,26 +75,15 @@ def test_light():
 
 
 def test_deconstruct():
-    def check(field_kwargs, deconstructed_kwargs):
+    def check(field_kwargs):
         field = StateField(TrafficLightMachine, **field_kwargs)
         *_, args, kwargs = field.deconstruct()
         assert args == (TrafficLightMachine,)
-        assert kwargs == deconstructed_kwargs
+        assert kwargs == field_kwargs
 
-    check(
-        dict(),
-        dict(),
-    )
-
-    check(
-        dict(default=Red),
-        dict(default="Red"),
-    )
-
-    check(
-        dict(verbose_name="STUFF"),
-        dict(verbose_name="STUFF"),
-    )
+    check(dict())
+    check(dict(default=Red))
+    check(dict(verbose_name="STUFF"))
 
 
 def test_not_a_machine():
