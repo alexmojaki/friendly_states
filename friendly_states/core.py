@@ -359,6 +359,7 @@ class BaseState(metaclass=StateMeta):
                 desired=desired,
                 state=state,
             )
+        self.__class__ = state
 
         return state
 
