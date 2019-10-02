@@ -338,7 +338,7 @@ class BaseState(metaclass=StateMeta):
             )
 
         self.obj = obj
-        self._get_and_check_state(
+        self.__class__ = self._get_and_check_state(
             IncorrectInitialState,
             "{obj} should be in state {desired} but is actually in state {state}"
         )
@@ -359,7 +359,6 @@ class BaseState(metaclass=StateMeta):
                 desired=desired,
                 state=state,
             )
-        self.__class__ = state
 
         return state
 
