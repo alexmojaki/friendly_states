@@ -185,22 +185,33 @@ def test_abstract_classes():
         pass
 
     class Child1(Mixin, Parent):
+        x = 1
+
         def to_child2(self) -> [Child2]:
             pass
 
     class Child2(Parent):
+        x = 2
+
         def to_child1(self) -> [Child1]:
             pass
 
     MyMachine.complete()
 
     thing = dict(state=Child1)
+    assert Parent(thing).x == 1
+    assert type(Parent(thing)) is Child1
     Child1(thing).to_child2()
     assert thing["state"] is Child2
+    assert Parent(thing).x == 2
+    assert type(Parent(thing)) is Child2
     Child2(thing).to_child1()
     assert thing["state"] is Child1
     Child1(thing).to_loner()
     assert thing["state"] is Loner
+
+    with raises(IncorrectInitialState):
+        Parent(thing)
 
     assert MyMachine.states == {Loner, Child1, Child2}
     assert Child1.machine is MyMachine

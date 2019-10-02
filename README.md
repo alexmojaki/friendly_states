@@ -1,3 +1,4 @@
+
 # friendly_states
 
 [![Build Status](https://travis-ci.org/alexmojaki/friendly_states.svg?branch=master)](https://travis-ci.org/alexmojaki/friendly_states) [![Coverage Status](https://coveralls.io/repos/github/alexmojaki/friendly_states/badge.svg?branch=master)](https://coveralls.io/github/alexmojaki/friendly_states?branch=master) [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh/alexmojaki/friendly_states/master?filepath=README.ipynb)
@@ -401,6 +402,14 @@ except Exception as e:
     <__main__.Task object at 0x11401cb00> should be in state Unfinished but is actually in state Finished
 
 
+However, you may want to use methods and attributes in the class representing the actual current state. In particular you might have overridden methods in the concrete state classes and want the correct implementation to run. To allow this, instances of a state automatically change the class to the actual state of the object: 
+
+
+```python
+task = Task()
+assert type(Unfinished(task)) is Waiting
+```
+
 ## BaseState - configuring state storage and changes
 
 At the root of all the classes in the library is `BaseState`, which has two abstract methods `get_state` and `set_state`. Subclasses determine how the object stores state and what should happen when it changes.
@@ -536,7 +545,7 @@ nx.draw(G, with_labels=True, node_color='pink')
 ```
 
 
-![png](README_files/README_42_0.png)
+![png](README_files/README_44_0.png)
 
 
 To label each edge requires some more work:
@@ -558,7 +567,7 @@ nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels);
 ```
 
 
-![png](README_files/README_44_0.png)
+![png](README_files/README_46_0.png)
 
 
 ### Creating multiple similar machines

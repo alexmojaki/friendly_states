@@ -93,9 +93,17 @@ class StateField(models.CharField):
             (state.slug, state.label)
             for state in machine.slug_to_state.values()
         ]
-        if "default" in kwargs:
-            kwargs["default"] = self.value_to_string(kwargs["default"])
+        default = kwargs.get("default")
+        if isinstance(default, str):
+            self.value_to_string(kwargs["default"])
         super().__init__(*args, **kwargs)
+
+    def get_default(self):
+        default = self._get_default
+        if isinstance(default, type) and issubclass(default, DjangoState):
+            return default
+        else:
+            return default()
 
     def deconstruct(self):
         name, path, args, kwargs = super().deconstruct()
@@ -146,7 +154,7 @@ class StateField(models.CharField):
                 )
         elif value is not None:
             raise ValidationError(
-                f"{self.name} should be a state class, a string, or None",
+                f"{self.name} should be a state class, a string, or None, not {value}",
             )
 
         return value
