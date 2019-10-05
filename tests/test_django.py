@@ -5,6 +5,7 @@ from django.db.transaction import atomic
 
 from friendly_states.core import AttributeState
 from friendly_states.django import StateField, DjangoState
+from friendly_states.exceptions import DjangoStateAttrNameWarning
 from myapp.models import MyModel, Green, Yellow, Red, DefaultableState, NullableState, TrafficLightMachine
 
 
@@ -170,5 +171,30 @@ def test_underscore_state():
                 app_label = "myapp"
 
             _state = StateField(TrafficLightMachine)
+
+        str(Model)
+
+
+def test_change_attr_name():
+    class BadMachine(DjangoState):
+        is_machine = True
+        attr_name = "thing"
+
+    class SomeState(BadMachine):
+        pass
+
+    str(SomeState)
+
+    BadMachine.complete()
+
+    with pytest.warns(
+            DjangoStateAttrNameWarning,
+            match="The machine BadMachine has attr_name = 'thing' but you have named the StateField 'state'."
+    ):
+        class Model(models.Model):
+            class Meta:
+                app_label = "myapp"
+
+            state = StateField(BadMachine)
 
         str(Model)

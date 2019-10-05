@@ -52,3 +52,7 @@ class ReturnedInvalidState(StateMachineException):
 
 class GetStateDidNotReturnState(StateMachineException):
     pass
+
+
+class DjangoStateAttrNameWarning(Warning):
+    pass

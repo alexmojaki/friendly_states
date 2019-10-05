@@ -42,12 +42,13 @@ Similarly you mustn't delete a state class if you stop using it as long as your 
 
 `choices` is constructed from the `slug` and `label` of every state. To customise how states are displayed in forms etc, override the `label` attribute on the class.
 """
-
+from warnings import warn
 
 from django.core.exceptions import ValidationError
 from django.db import models
 
 from friendly_states.core import StateMeta, AttributeState
+from friendly_states.exceptions import DjangoStateAttrNameWarning
 
 
 class DjangoState(AttributeState):
@@ -121,7 +122,20 @@ class StateField(models.CharField):
                 "and should not be the name of a field."
             )
         super().contribute_to_class(cls, name, *args, **kwargs)
-        self.machine.attr_name = self.attname
+        machine = self.machine
+
+        if machine.attr_name not in (None, self.attname):
+            warn(
+                f"The machine {machine} has attr_name = {repr(machine.attr_name)} "
+                f"but you have named the StateField {repr(self.attname)}. "
+                f"If you have accounted for this already (e.g. by following the recipe in the README), "
+                f"you can disable this warning with the code:\n"
+                f"import warnings\n"
+                f"warnings.filterwarnings('ignore', DjangoStateAttrNameWarning)",
+                DjangoStateAttrNameWarning,
+            )
+        else:
+            machine.attr_name = self.attname
 
     # noinspection PyUnusedLocal
     def from_db_value(self, value, expression, connection):
